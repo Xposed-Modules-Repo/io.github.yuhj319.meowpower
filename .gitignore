@@ -1,0 +1,30 @@
+# Gradle / Android
+.gradle/
+/build/
+/app/build/
+captures/
+.externalNativeBuild/
+*.hprof
+
+# Local configuration
+local.properties
+
+# Signing — NEVER commit keys
+keystore/
+keystore.properties
+*.jks
+*.keystore
+
+# Logs
+*.log
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Kotlin plugin cache
+.kotlin/
+
+# Old version backups, not part of the repo
+.backup/

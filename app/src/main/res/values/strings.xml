@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">喵力全开</string>
+    <string name="module_description">解除小米安全中心的各类限制。覆盖充电保护（夜间 / 通用 / pogo / 快充 / 旁路）、性能与电源（省电 / 超省电 / 降频 / 温控）、系统与后台（AppOps / 杀后台 / 自启动），并提供 root 实时监控与持久化落地。</string>
+
+    <string name="status_disconnected">未连接 LSPosed</string>
+    <string name="status_disconnected_detail">请确认：1) 已在 LSPosed 中启用本模块；2) 作用域已勾选「安全服务」；3) 已重启安全服务进程。</string>
+    <string name="status_prefs_failed">配置存储不可用</string>
+    <string name="status_prefs_failed_detail">已连接框架但无法获取 RemotePreferences，请检查 LSPosed 版本是否支持现代 API。</string>
+    <string name="status_connected">已连接 %1$s</string>
+    <string name="status_detail">框架版本 %1$s · API %2$d\n作用域 %3$s</string>
+
+    <string name="section_monitor">实时监控（root）</string>
+    <string name="monitor_refresh">刷新</string>
+    <string name="monitor_reading">读取中…</string>
+    <string name="monitor_no_root">root 不可用，无法读取 sysfs 与系统属性</string>
+    <string name="monitor_idle">点「刷新」开始读取</string>
+    <string name="monitor_root_ok">root 已授权</string>
+    <string name="monitor_root_fail">root 未授权</string>
+    <string name="monitor_auto_off">自动刷新：关</string>
+    <string name="monitor_auto_on">自动刷新：开</string>
+    <string name="section_other">其它保护</string>
+    <string name="monitor_updated">更新于 %1$s</string>
+
+    <string name="section_persist">持久化落地（模块关闭后仍生效）</string>
+    <string name="persist_hint">用 root 把「禁用充电保护」直接写进系统属性与 Settings。落地后保护判定会在源头失败，即使停用或卸载本模块，限制也不会回来。应用前会自动备份原值。</string>
+    <string name="persist_apply">应用落地</string>
+    <string name="persist_restore">还原原值</string>
+    <string name="persist_state_applied">当前：已落地</string>
+    <string name="persist_state_clean">当前：未落地</string>
+    <string name="persist_working">执行中…</string>
+
+    <string name="section_master">总开关</string>
+    <string name="master_enabled">启用模块</string>
+    <string name="master_hint">关闭后所有 Hook 干预立即停止，目标应用无需重启。已落地的系统改动不受影响。</string>
+
+    <string name="section_night">夜间充电保护</string>
+    <string name="night_entry">拦截保护入口</string>
+    <string name="night_entry_hint">掐掉 NightChargeProtectManager.C() 与 M()，夜充保护根本不启动。推荐。</string>
+    <string name="night_state">拦截状态写入（兜底）</string>
+    <string name="night_state_hint">拦截 setNightChargingState(1)，防止其它路径重新开启夜充保护。</string>
+
+    <string name="section_protect">通用充电保护（高温 / 导航 / 长时 / 手柄 / 始终）</string>
+    <string name="protect_all">拦截全部充电保护</string>
+    <string name="protect_all_hint">拦截 hg.a.l(true) 总闸，7 个保护策略一律不启动。该方法全库只有一份实现，覆盖完整。</string>
+    <string name="protect_common">拦截通用保护写入</string>
+    <string name="protect_common_hint">完全阻止 e.n() / e.p() 下发 smart_chg 保护位。</string>
+    <string name="protect_limit">限制百分比</string>
+    <string name="protect_limit_unlimited">不限制</string>
+    <string name="protect_limit_value">%1$d%%</string>
+    <string name="protect_limit_hint">限制百分比为 100 时不下发限制；设为其它数值会把保护阈值改写成该百分比。</string>
+
+    <string name="pogo_protect">pogo 底座充电保护</string>
+    <string name="pogo_hint">底座 / 触点充电且电量高于 79% 时触发的保护，拦截 gh.e 的开启动作。</string>
+    <string name="wireless_silence">关闭无线静音充电</string>
+    <string name="wireless_hint">强制关闭 smart_chg 的 0x80 静音位，恢复无线充电满功率。</string>
+
+    <string name="section_perf">性能与电源</string>
+    <string name="perf_power_mode">拦截电源模式切换</string>
+    <string name="perf_power_mode_hint">拦掉 PowerSaverProvider.call 的性能 / 省电 / 超省电切换，模式一律不生效。查询类调用放行。</string>
+    <string name="perf_super_save">拦截超省电模式</string>
+    <string name="perf_super_save_hint">超省电一进入会连锁触发：禁用应用、杀后台、冻结自启动、动画归零、通知与状态栏限制。掐掉入口即可全部解除。</string>
+    <string name="perf_fps">禁止降频 / 降亮度</string>
+    <string name="perf_fps_hint">拦掉省电时的刷新率下调、亮度降低与息屏超时缩短。</string>
+    <string name="perf_thermal">禁止温控降频</string>
+    <string name="perf_thermal_hint">拦掉温控配置下发，避免高温触发强制降档。</string>
+
+    <string name="section_system">系统与后台</string>
+    <string name="sys_appops">解除 AppOps 限制</string>
+    <string name="sys_appops_hint">放行 10048 禁安装、10049 链式启动、10050 设备标识、10041 录屏、119 无障碍、10054/10055 AI 读屏控屏。</string>
+    <string name="sys_kill_bg">禁止清理杀后台</string>
+    <string name="sys_kill_bg_hint">拦掉一键清理的杀进程与移除最近任务。</string>
+    <string name="sys_autostart">强制允许自启动</string>
+    <string name="sys_autostart_hint">自启动不走 Settings 也不走 AppOps，走平台权限库，常规方案对它无效。</string>
+
+    <string name="section_fast">快充</string>
+    <string name="fast_off">不干预</string>
+    <string name="fast_on">强制开启</string>
+    <string name="fast_disable">强制关闭</string>
+    <string name="fast_hint">强制开启会同时放行能力判定，用于机型白名单或属性缺失导致快充不可用的场景。</string>
+
+    <string name="section_bypass">旁路充电（边玩边充直供）</string>
+    <string name="bypass_off">不干预</string>
+    <string name="bypass_block_on">阻止自动开启</string>
+    <string name="bypass_block_off">阻止自动停止</string>
+    <string name="bypass_hint">旁路充电会暂停给电池充电、直接给主板供电。</string>
+
+    <string name="section_health">电池健康度</string>
+    <string name="health_fake">伪装健康度等级</string>
+    <string name="health_level">等级 %1$d</string>
+    <string name="health_hint">拦截 jh.c.p() 的返回值，4 为最优。仅影响显示与等级判定。</string>
+
+    <string name="section_debug">调试</string>
+    <string name="debug_log">输出调试日志</string>
+    <string name="debug_hint">日志 TAG：MeowPower。可用 logcat -s MeowPower 观察。</string>
+
+    <string name="footer">配置修改即时生效，无需重启目标应用。\n首次启用模块或更新模块代码后，需要重启安全服务进程。\n持久化落地不依赖模块运行，可在停用模块后继续生效。\n\n本模块仅修改本机充电行为，不涉及数据上传。</string>
+</resources>
