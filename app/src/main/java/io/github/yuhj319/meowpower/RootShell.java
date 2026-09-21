@@ -59,6 +59,18 @@ public final class RootShell {
         sRootAvailable = null;
     }
 
+    /** 以 root 重启目标应用（am force-stop），使新配置与 Hook 生效。 */
+    public static boolean restartPackage(String packageName) {
+        if (packageName == null || packageName.isEmpty()) {
+            return false;
+        }
+        try {
+            return exec("am force-stop " + packageName).ok;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     /** 以 root 身份执行一段 shell 脚本。 */
     public static Result exec(String script) {
         Process process = null;

@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.InfiniteTransition
@@ -35,6 +36,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
@@ -184,6 +186,9 @@ private fun readConfig(prefs: SharedPreferences?): UiConfig {
     )
 }
 
+/** Hook 目标包，重启作用域即重启它。 */
+private const val TARGET_PACKAGE = "com.miui.securitycenter"
+
 private const val REFRESH_INTERVAL_MS = 2000L
 
 /** 界面自身的偏好，与 Hook 侧读取的 RemotePreferences 无关。 */
@@ -286,6 +291,20 @@ private fun MeowPowerApp() {
         config = apply(config)
     }
 
+    /** root 重启安全服务（作用域），使新配置与 Hook 生效。 */
+    fun restartScope() {
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                RootShell.restartPackage(TARGET_PACKAGE)
+            }
+            Toast.makeText(
+                context,
+                if (ok) "已重启安全服务" else "重启失败：root 不可用",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+
     LaunchedEffect(Unit) {
         while (true) {
             val latest = App.getService()
@@ -338,6 +357,7 @@ private fun MeowPowerApp() {
                     onEnabledChange = {
                         setBool(Config.KEY_ENABLED, it) { c -> c.copy(enabled = it) }
                     },
+                    onRestartScope = { restartScope() },
                 )
 
                 1 -> ChargePage(
@@ -345,11 +365,13 @@ private fun MeowPowerApp() {
                     onBool = { key, value, apply -> setBool(key, value, apply) },
                     onInt = { key, value, apply -> setInt(key, value, apply) },
                     onString = { key, value, apply -> setString(key, value, apply) },
+                    onRestartScope = { restartScope() },
                 )
 
                 2 -> SystemPage(
                     config = config,
                     onBool = { key, value, apply -> setBool(key, value, apply) },
+                    onRestartScope = { restartScope() },
                 )
 
                 else -> SettingsPage(
@@ -373,6 +395,7 @@ private fun MeowPowerApp() {
                             persistBusy = false
                         }
                     },
+                    onRestartScope = { restartScope() },
                 )
             }
         }
@@ -392,9 +415,10 @@ private fun HomePage(
     updatedAt: Long,
     enabled: Boolean,
     onEnabledChange: (Boolean) -> Unit,
+    onRestartScope: () -> Unit,
 ) {
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { PageTitle("喵力全开") }
+        item { PageHeader("喵力全开", onRestartScope) }
         item { StatusHeroCard(service, hasPrefs) }
         item { StatusInfoCard(service, rootAvailable) }
 
@@ -431,10 +455,11 @@ private fun ChargePage(
     onBool: (String, Boolean, (UiConfig) -> UiConfig) -> Unit,
     onInt: (String, Int, (UiConfig) -> UiConfig) -> Unit,
     onString: (String, String, (UiConfig) -> UiConfig) -> Unit,
+    onRestartScope: () -> Unit,
 ) {
     val enabled = config.enabled
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { PageTitle("充电保护") }
+        item { PageHeader("充电保护", onRestartScope) }
         item { SmallTitle(text = "夜间充电保护") }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
@@ -606,12 +631,13 @@ private fun ChargePage(
                 )
                 TextInputRow(
                     title = "自定义健康度显示",
-                    brief = "只改充电保护页那一处百分比。留空不修改，填什么显示什么。",
+                    brief = "只改充电保护页那一处百分比。留空不修改，点确定保存并重启安全服务。",
                     value = config.uiHealthText,
                     enabled = enabled,
                     onValueChange = {
                         onString(Config.KEY_UI_HEALTH_TEXT, it) { c -> c.copy(uiHealthText = it) }
                     },
+                    onConfirmed = { onRestartScope() },
                 )
             }
         }
@@ -626,10 +652,11 @@ private fun ChargePage(
 private fun SystemPage(
     config: UiConfig,
     onBool: (String, Boolean, (UiConfig) -> UiConfig) -> Unit,
+    onRestartScope: () -> Unit,
 ) {
     val enabled = config.enabled
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { PageTitle("系统与性能") }
+        item { PageHeader("系统与性能", onRestartScope) }
         item { SmallTitle(text = "性能与电源") }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
@@ -806,9 +833,10 @@ private fun SettingsPage(
     persistLog: String,
     onBool: (String, Boolean, (UiConfig) -> UiConfig) -> Unit,
     onPersist: (Boolean) -> Unit,
+    onRestartScope: () -> Unit,
 ) {
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { PageTitle("设置") }
+        item { PageHeader("设置", onRestartScope) }
         item { SmallTitle(text = "持久化落地（模块关闭后仍生效）") }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
@@ -1111,6 +1139,27 @@ private fun PageTitle(text: String) {
     )
 }
 
+/** 大页页头：大标题 + 右上角重启作用域按钮。 */
+@Composable
+private fun PageHeader(title: String, onRestartScope: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 16.dp, top = 16.dp, bottom = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            fontSize = 32.sp,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(
+            text = "重启作用域",
+            onClick = onRestartScope,
+        )
+    }
+}
+
 /**
  * 首次进入的诚信付款页。只做提示，不校验是否真的付过款，
  * 点「我已付款」即视为通过，结果记在本地偏好里，之后不再出现。
@@ -1274,7 +1323,7 @@ private fun SettingItem(
     ExpandableDetail(detail = detail, expanded = expanded, onToggle = { expanded = !expanded })
 }
 
-/** 单行文本输入行：标题 + 说明 + 输入框，空值显示占位提示。 */
+/** 单行文本输入行：标题 + 说明，输入框与确定按钮横向排列，空值显示占位提示。输入先存草稿，点确定才写入。 */
 @Composable
 private fun TextInputRow(
     title: String,
@@ -1282,34 +1331,47 @@ private fun TextInputRow(
     value: String,
     enabled: Boolean,
     onValueChange: (String) -> Unit,
+    onConfirmed: () -> Unit = {},
 ) {
     val inputColor = if (isSystemInDarkTheme()) Color.White else Color.Black
+    var draft by remember(value) { mutableStateOf(value) }
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
         Text(text = title, fontSize = 15.sp)
         Spacer(modifier = Modifier.height(4.dp))
         Text(text = brief, fontSize = 12.sp, color = Color.Gray)
         Spacer(modifier = Modifier.height(8.dp))
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            enabled = enabled,
-            singleLine = true,
-            textStyle = TextStyle(fontSize = 15.sp, color = inputColor),
-            cursorBrush = SolidColor(inputColor),
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color.Gray.copy(alpha = 0.15f))
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            decorationBox = { inner ->
-                Box {
-                    if (value.isEmpty()) {
-                        Text(text = "如：88%", fontSize = 15.sp, color = Color.Gray)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BasicTextField(
+                value = draft,
+                onValueChange = { draft = it },
+                enabled = enabled,
+                singleLine = true,
+                textStyle = TextStyle(fontSize = 15.sp, color = inputColor),
+                cursorBrush = SolidColor(inputColor),
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.Gray.copy(alpha = 0.15f))
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                decorationBox = { inner ->
+                    Box {
+                        if (draft.isEmpty()) {
+                            Text(text = "如：88%", fontSize = 15.sp, color = Color.Gray)
+                        }
+                        inner()
                     }
-                    inner()
-                }
-            },
-        )
+                },
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            TextButton(
+                text = "确定",
+                onClick = {
+                    onValueChange(draft)
+                    onConfirmed()
+                },
+                enabled = enabled && draft != value,
+            )
+        }
     }
 }
 

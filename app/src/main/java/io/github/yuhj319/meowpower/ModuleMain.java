@@ -1098,31 +1098,7 @@ public class ModuleMain extends XposedModule {
      * <p>无 UI 开关，跟随模块总开关。</p>
      */
     private void hookUiHealth(ClassLoader cl) {
-        Method getText = findMethod(cl, "android.content.res.Resources", "getText", int.class);
-        if (getText != null) {
-            try {
-                hook(getText).setId("cf_ui_health_gettext").intercept(chain -> {
-                    Object result = chain.proceed();
-                    capUiRes(chain.getThisObject(), chain.getArg(0), result);
-                    return result;
-                });
-            } catch (Throwable t) {
-                log(Log.ERROR, TAG, "Hook Resources.getText 失败", t);
-            }
-        }
-
-        Method getString = findMethod(cl, "android.content.res.Resources", "getString", int.class);
-        if (getString != null) {
-            try {
-                hook(getString).setId("cf_ui_health_getstring").intercept(chain -> {
-                    Object result = chain.proceed();
-                    capUiRes(chain.getThisObject(), chain.getArg(0), result);
-                    return result;
-                });
-            } catch (Throwable t) {
-                log(Log.ERROR, TAG, "Hook Resources.getString 失败", t);
-            }
-        }
+        hookUiHealthResCap(cl);
 
         try {
             Class<?> bufferType = Class.forName("android.widget.TextView$BufferType", false, cl);
@@ -1183,6 +1159,30 @@ public class ModuleMain extends XposedModule {
             });
         } catch (Throwable t) {
             log(Log.WARN, TAG, "充电保护页不存在，跳过页面追踪");
+        }
+    }
+
+    /** 记录百分数字符串对应的资源名。健康度是格式化串（getString(id, …) 带参），无参重载会漏，必须全拦。 */
+    private void hookUiHealthResCap(ClassLoader cl) {
+        capResMethod(cl, "getText", new Class<?>[]{int.class}, "cf_ui_health_gettext");
+        capResMethod(cl, "getText", new Class<?>[]{int.class, CharSequence.class}, "cf_ui_health_gettext_def");
+        capResMethod(cl, "getString", new Class<?>[]{int.class}, "cf_ui_health_getstring");
+        capResMethod(cl, "getString", new Class<?>[]{int.class, Object[].class}, "cf_ui_health_getstring_fmt");
+    }
+
+    private void capResMethod(ClassLoader cl, String name, Class<?>[] params, String id) {
+        Method m = findMethod(cl, "android.content.res.Resources", name, params);
+        if (m == null) {
+            return;
+        }
+        try {
+            hook(m).setId(id).intercept(chain -> {
+                Object result = chain.proceed();
+                capUiRes(chain.getThisObject(), chain.getArg(0), result);
+                return result;
+            });
+        } catch (Throwable t) {
+            log(Log.ERROR, TAG, "Hook Resources." + name + " 失败", t);
         }
     }
 
