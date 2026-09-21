@@ -12,10 +12,26 @@ import io.github.libxposed.service.XposedServiceHelper;
 public class App extends Application implements XposedServiceHelper.OnServiceListener {
 
     private static volatile XposedService sService;
+    private static volatile Listener sListener;
+
+    /** 服务绑定状态变化监听，界面用它即时刷新，不用等轮询。 */
+    public interface Listener {
+        void onServiceChanged(XposedService service);
+    }
 
     /** 框架未连接时返回 null。 */
     public static XposedService getService() {
         return sService;
+    }
+
+    public static void setListener(Listener listener) {
+        sListener = listener;
+    }
+
+    public static void clearListener(Listener listener) {
+        if (sListener == listener) {
+            sListener = null;
+        }
     }
 
     @Override
@@ -27,10 +43,18 @@ public class App extends Application implements XposedServiceHelper.OnServiceLis
     @Override
     public void onServiceBind(XposedService service) {
         sService = service;
+        Listener listener = sListener;
+        if (listener != null) {
+            listener.onServiceChanged(service);
+        }
     }
 
     @Override
     public void onServiceDied(XposedService service) {
         sService = null;
+        Listener listener = sListener;
+        if (listener != null) {
+            listener.onServiceChanged(null);
+        }
     }
 }

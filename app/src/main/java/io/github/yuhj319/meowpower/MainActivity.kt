@@ -42,6 +42,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -236,6 +237,27 @@ private fun MeowPowerApp() {
     var service by remember { mutableStateOf(App.getService()) }
     var prefs by remember { mutableStateOf(loadRemotePrefs(service)) }
     var config by remember { mutableStateOf(readConfig(prefs)) }
+
+    // 框架 binder 一送达就刷新状态，不用等 2 秒轮询；binder 线程回调，用 scope 切回主线程
+    DisposableEffect(Unit) {
+        val listener = App.Listener { latest ->
+            scope.launch {
+                service = latest
+                prefs = loadRemotePrefs(latest)
+                config = readConfig(prefs)
+            }
+        }
+        App.setListener(listener)
+        scope.launch {
+            val current = App.getService()
+            if (current !== service) {
+                service = current
+                prefs = loadRemotePrefs(current)
+                config = readConfig(prefs)
+            }
+        }
+        onDispose { App.clearListener(listener) }
+    }
 
     var chargeState by remember { mutableStateOf<ChargeState?>(null) }
     var rootAvailable by remember { mutableStateOf<Boolean?>(null) }

@@ -31,7 +31,7 @@ android {
         applicationId = "io.github.yuhj319.meowpower"
         minSdk = 29
         targetSdk = 37
-        versionCode = 5
+        versionCode = 500100
         versionName = "5.0"
     }
 
