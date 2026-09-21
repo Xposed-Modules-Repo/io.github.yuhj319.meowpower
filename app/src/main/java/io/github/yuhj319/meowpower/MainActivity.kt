@@ -1,16 +1,30 @@
 package io.github.yuhj319.meowpower
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.InfiniteTransition
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -25,6 +39,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,14 +51,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -118,10 +139,6 @@ private data class UiConfig(
     val noTrafficCutoff: Boolean = false,
     val noTetherLimit: Boolean = false,
     val noInstallVerify: Boolean = false,
-    val batteryOfficial: Boolean = false,
-    val hideHealth: Boolean = false,
-    val hideDesign: Boolean = false,
-    val hideActual: Boolean = false,
     val fakeHealth: Boolean = false,
     val healthLevel: Int = 4,
     val debugLog: Boolean = false,
@@ -155,10 +172,6 @@ private fun readConfig(prefs: SharedPreferences?): UiConfig {
         noTrafficCutoff = prefs.getBoolean(Config.KEY_NO_TRAFFIC_CUTOFF, false),
         noTetherLimit = prefs.getBoolean(Config.KEY_NO_TETHER_LIMIT, false),
         noInstallVerify = prefs.getBoolean(Config.KEY_NO_INSTALL_VERIFY, false),
-        batteryOfficial = prefs.getBoolean(Config.KEY_BATTERY_OFFICIAL, false),
-        hideHealth = prefs.getBoolean(Config.KEY_HIDE_HEALTH, false),
-        hideDesign = prefs.getBoolean(Config.KEY_HIDE_DESIGN, false),
-        hideActual = prefs.getBoolean(Config.KEY_HIDE_ACTUAL, false),
         fakeHealth = prefs.getBoolean(Config.KEY_FAKE_HEALTH, false),
         healthLevel = prefs.getInt(Config.KEY_HEALTH_LEVEL, 4),
         debugLog = prefs.getBoolean(Config.KEY_DEBUG_LOG, false),
@@ -783,58 +796,10 @@ private fun SettingsPage(
             }
         }
 
+        item { SmallTitle(text = "关于") }
         item {
-            SmallTitle(text = "官改专区")
-            Text(
-                text = "电池信息回官方：「安全中心 › 充电保护」页的健康度与容量三项，" +
-                        "由本模块接管显示。",
-                fontSize = 12.sp,
-                color = Color.Gray,
-                modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 6.dp),
-            )
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
-                SettingItem(
-                    title = "电池信息回官方",
-                    brief = "显示系统真实读数，覆盖第三方改写",
-                    detail = "实际健康度 / 设计容量 / 实际容量 三项由本模块直接读 sysfs 节点重算" +
-                            "（charge_full 与 charge_full_design），绕开对页面取值方法的改写，" +
-                            "让充电保护页回到官方读数。",
-                    checked = config.batteryOfficial,
-                    enabled = config.enabled,
-                    onCheckedChange = {
-                        onBool(Config.KEY_BATTERY_OFFICIAL, it) { c -> c.copy(batteryOfficial = it) }
-                    },
-                )
-                SettingItem(
-                    title = "隐藏实际健康度",
-                    brief = "整行从页面移除",
-                    detail = "把「实际健康度」整行从充电保护页删掉，页面不显示这一项。",
-                    checked = config.hideHealth,
-                    enabled = config.enabled,
-                    onCheckedChange = {
-                        onBool(Config.KEY_HIDE_HEALTH, it) { c -> c.copy(hideHealth = it) }
-                    },
-                )
-                SettingItem(
-                    title = "隐藏设计容量",
-                    brief = "整行从页面移除",
-                    detail = "把「设计容量」整行从充电保护页删掉，页面不显示这一项。",
-                    checked = config.hideDesign,
-                    enabled = config.enabled,
-                    onCheckedChange = {
-                        onBool(Config.KEY_HIDE_DESIGN, it) { c -> c.copy(hideDesign = it) }
-                    },
-                )
-                SettingItem(
-                    title = "隐藏实际容量",
-                    brief = "整行从页面移除",
-                    detail = "把「实际容量」整行从充电保护页删掉，页面不显示这一项。",
-                    checked = config.hideActual,
-                    enabled = config.enabled,
-                    onCheckedChange = {
-                        onBool(Config.KEY_HIDE_ACTUAL, it) { c -> c.copy(hideActual = it) }
-                    },
-                )
+                AboutBlock()
             }
         }
 
@@ -848,6 +813,331 @@ private fun SettingsPage(
                 color = Color.Gray,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
             )
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 关于
+// ---------------------------------------------------------------------------
+
+private const val ABOUT_AUTHOR = "yuhj319"
+private const val ABOUT_AUTHOR_URL = "https://github.com/yuhj319"
+private const val ABOUT_REPO_NAME = "io.github.yuhj319.meowpower"
+private const val ABOUT_REPO_URL = "https://github.com/Xposed-Modules-Repo/io.github.yuhj319.meowpower"
+
+private fun openUrl(context: Context, url: String) {
+    runCatching {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
+}
+
+private fun appVersion(context: Context): Pair<String, String> {
+    val info = runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.packageManager.getPackageInfo(
+                context.packageName, PackageManager.PackageInfoFlags.of(0),
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(context.packageName, 0)
+        }
+    }.getOrNull()
+    return (info?.versionName ?: "—") to (info?.longVersionCode?.toString() ?: "—")
+}
+
+@Composable
+private fun AboutBlock() {
+    Column(modifier = Modifier.padding(vertical = 12.dp)) {
+        AboutHero()
+        Spacer(modifier = Modifier.height(6.dp))
+        LinkRow(label = "作者", value = ABOUT_AUTHOR, url = ABOUT_AUTHOR_URL)
+        LinkRow(label = "仓库", value = ABOUT_REPO_NAME, url = ABOUT_REPO_URL)
+        AboutVersionRow()
+    }
+}
+
+/** 关于页顶部的花哨横幅：流动渐变底 + 眨眼猫头 + 彩虹标题 + 蹦跶爪印。 */
+@Composable
+private fun AboutHero() {
+    val transition = rememberInfiniteTransition(label = "about")
+    val slide by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 3600, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "slide",
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(
+                        Color(0xFF7B2FF7),
+                        Color(0xFFF107A3),
+                        Color(0xFFFF8A00),
+                        Color(0xFF7B2FF7),
+                    ),
+                    start = Offset(slide * 900f, 0f),
+                    end = Offset(slide * 900f + 700f, 900f),
+                ),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        FloatingDots(slide = slide)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(vertical = 22.dp),
+        ) {
+            CatFace(transition = transition)
+            Spacer(modifier = Modifier.height(10.dp))
+            BasicText(
+                text = "喵力全开",
+                style = TextStyle(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFFFF3B30),
+                            Color(0xFFFF9500),
+                            Color(0xFFFFCC00),
+                            Color(0xFF34C759),
+                            Color(0xFF32ADE6),
+                            Color(0xFFBF5AF2),
+                            Color(0xFFFF3B30),
+                        ),
+                        start = Offset(slide * 700f, slide * 200f),
+                        end = Offset(slide * 700f + 420f, slide * 200f + 160f),
+                        tileMode = androidx.compose.ui.graphics.TileMode.Mirror,
+                    ),
+                    fontSize = 38.sp,
+                    fontWeight = FontWeight.Black,
+                ),
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            PawRow(transition = transition)
+        }
+    }
+}
+
+/** 横幅背景里漂浮的半透明圆点。 */
+@Composable
+private fun BoxScope.FloatingDots(slide: Float) {
+    Canvas(modifier = Modifier.matchParentSize()) {
+        val w = size.width
+        val h = size.height
+        drawCircle(Color.White.copy(alpha = 0.14f), 46f, Offset(w * slide, h * 0.25f))
+        drawCircle(Color.White.copy(alpha = 0.10f), 70f, Offset(w * (1f - slide), h * 0.8f))
+        drawCircle(Color.White.copy(alpha = 0.12f), 26f, Offset(w * ((slide + 0.5f) % 1f), h * 0.55f))
+    }
+}
+
+/** 眨眼摇摆的猫头，周围三颗星星持续公转。纯 Canvas 手绘。 */
+@Composable
+private fun CatFace(transition: InfiniteTransition) {
+    val blink by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes {
+                durationMillis = 4200
+                1f at 0
+                1f at 3800
+                0.08f at 3930
+                1f at 4060
+            },
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "blink",
+    )
+    val spin by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 9000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "spin",
+    )
+    val bob by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = -10f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "bob",
+    )
+    Canvas(modifier = Modifier.size(132.dp)) {
+        val cx = size.width / 2f
+        val cy = size.height / 2f + 6f
+        val r = size.minDimension * 0.30f
+        val orange = Color(0xFFFFA726)
+        val pink = Color(0xFFFFB3C1)
+        val dark = Color(0xFF3A2E2E)
+        translate(top = bob) {
+            // 耳朵
+            drawPath(
+                path = Path().apply {
+                    moveTo(cx - r * 0.78f, cy - r * 0.45f)
+                    lineTo(cx - r * 1.02f, cy - r * 1.28f)
+                    lineTo(cx - r * 0.10f, cy - r * 0.80f)
+                    close()
+                },
+                color = orange,
+            )
+            drawPath(
+                path = Path().apply {
+                    moveTo(cx + r * 0.78f, cy - r * 0.45f)
+                    lineTo(cx + r * 1.02f, cy - r * 1.28f)
+                    lineTo(cx + r * 0.10f, cy - r * 0.80f)
+                    close()
+                },
+                color = orange,
+            )
+            drawPath(
+                path = Path().apply {
+                    moveTo(cx - r * 0.62f, cy - r * 0.55f)
+                    lineTo(cx - r * 0.76f, cy - r * 1.02f)
+                    lineTo(cx - r * 0.28f, cy - r * 0.78f)
+                    close()
+                },
+                color = pink,
+            )
+            drawPath(
+                path = Path().apply {
+                    moveTo(cx + r * 0.62f, cy - r * 0.55f)
+                    lineTo(cx + r * 0.76f, cy - r * 1.02f)
+                    lineTo(cx + r * 0.28f, cy - r * 0.78f)
+                    close()
+                },
+                color = pink,
+            )
+            // 脸盘
+            drawCircle(color = orange, radius = r, center = Offset(cx, cy))
+            // 眼睛（纵向缩放实现眨眼）
+            val ew = r * 0.20f
+            val eh = (r * 0.30f * blink).coerceAtLeast(2f)
+            drawOval(
+                color = dark,
+                topLeft = Offset(cx - r * 0.42f - ew, cy - r * 0.10f - eh),
+                size = Size(ew * 2f, eh * 2f),
+            )
+            drawOval(
+                color = dark,
+                topLeft = Offset(cx + r * 0.42f - ew, cy - r * 0.10f - eh),
+                size = Size(ew * 2f, eh * 2f),
+            )
+            // 腮红
+            drawCircle(color = pink.copy(alpha = 0.7f), radius = r * 0.16f, center = Offset(cx - r * 0.62f, cy + r * 0.35f))
+            drawCircle(color = pink.copy(alpha = 0.7f), radius = r * 0.16f, center = Offset(cx + r * 0.62f, cy + r * 0.35f))
+            // 鼻子
+            drawPath(
+                path = Path().apply {
+                    moveTo(cx - r * 0.10f, cy + r * 0.22f)
+                    lineTo(cx + r * 0.10f, cy + r * 0.22f)
+                    lineTo(cx, cy + r * 0.34f)
+                    close()
+                },
+                color = pink,
+            )
+            // 胡须
+            val whisker = Color.White.copy(alpha = 0.85f)
+            val stroke = 3f
+            drawLine(whisker, Offset(cx - r * 0.95f, cy + r * 0.25f), Offset(cx - r * 0.45f, cy + r * 0.32f), stroke, StrokeCap.Round)
+            drawLine(whisker, Offset(cx - r * 0.95f, cy + r * 0.48f), Offset(cx - r * 0.45f, cy + r * 0.44f), stroke, StrokeCap.Round)
+            drawLine(whisker, Offset(cx + r * 0.95f, cy + r * 0.25f), Offset(cx + r * 0.45f, cy + r * 0.32f), stroke, StrokeCap.Round)
+            drawLine(whisker, Offset(cx + r * 0.95f, cy + r * 0.48f), Offset(cx + r * 0.45f, cy + r * 0.44f), stroke, StrokeCap.Round)
+        }
+        // 公转的星星
+        rotate(degrees = spin, pivot = Offset(cx, cy)) {
+            val star = Color.White.copy(alpha = 0.9f)
+            sparkle(center = Offset(cx, cy - r * 1.55f), size = 14f, color = star)
+            sparkle(center = Offset(cx + r * 1.45f, cy + r * 0.55f), size = 10f, color = star)
+            sparkle(center = Offset(cx - r * 1.45f, cy + r * 0.55f), size = 10f, color = star)
+        }
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.sparkle(
+    center: Offset,
+    size: Float,
+    color: Color,
+) {
+    drawLine(color, Offset(center.x - size, center.y), Offset(center.x + size, center.y), 4f, StrokeCap.Round)
+    drawLine(color, Offset(center.x, center.y - size), Offset(center.x, center.y + size), 4f, StrokeCap.Round)
+}
+
+/** 三枚依次蹦跶的爪印。 */
+@Composable
+private fun PawRow(transition: InfiniteTransition) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(3) { index ->
+            val bounce by transition.animateFloat(
+                initialValue = 0f,
+                targetValue = -16f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 650, delayMillis = index * 200, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+                label = "paw$index",
+            )
+            Canvas(modifier = Modifier.size(30.dp)) {
+                translate(top = bounce) {
+                    val c = Color.White.copy(alpha = 0.92f)
+                    drawOval(c, Offset(size.width * 0.5f - 13f, size.height * 0.55f - 10f), Size(26f, 20f))
+                    drawCircle(c, 6f, Offset(size.width * 0.22f, size.height * 0.32f))
+                    drawCircle(c, 6f, Offset(size.width * 0.5f, size.height * 0.22f))
+                    drawCircle(c, 6f, Offset(size.width * 0.78f, size.height * 0.32f))
+                }
+            }
+        }
+    }
+}
+
+/** 可点击跳转浏览器的链接行。 */
+@Composable
+private fun LinkRow(label: String, value: String, url: String) {
+    val context = LocalContext.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { openUrl(context, url) }
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = label, fontSize = 15.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = value, fontSize = 13.sp, color = Color.Gray)
+        }
+        Text(text = "↗", fontSize = 15.sp, color = Color.Gray)
+    }
+}
+
+/** 版本行：读包管理器拿真实 versionName / versionCode。 */
+@Composable
+private fun AboutVersionRow() {
+    val context = LocalContext.current
+    val (name, code) = remember(context) { appVersion(context) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = "版本", fontSize = 15.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = "v$name ($code)", fontSize = 13.sp, color = Color.Gray)
         }
     }
 }

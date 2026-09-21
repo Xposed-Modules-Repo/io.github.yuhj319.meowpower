@@ -81,18 +81,6 @@ public final class Config {
     /** 解除安装签名校验拦截。 */
     public static final String KEY_NO_INSTALL_VERIFY = "no_install_verify";
 
-    /** 官改专区：电池信息回官方（强制显示系统真实读数）。 */
-    public static final String KEY_BATTERY_OFFICIAL = "battery_official";
-
-    /** 官改专区：隐藏「实际健康度」项。 */
-    public static final String KEY_HIDE_HEALTH = "hide_health";
-
-    /** 官改专区：隐藏「设计容量」项。 */
-    public static final String KEY_HIDE_DESIGN = "hide_design";
-
-    /** 官改专区：隐藏「实际容量」项。 */
-    public static final String KEY_HIDE_ACTUAL = "hide_actual";
-
     /** 是否伪装电池健康度等级。 */
     public static final String KEY_FAKE_HEALTH = "fake_health";
 

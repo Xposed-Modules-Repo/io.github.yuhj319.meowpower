@@ -9,11 +9,8 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.lang.reflect.Method;
 import java.util.List;
-import java.util.Locale;
 
 import io.github.libxposed.api.XposedModule;
 import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam;
@@ -96,13 +93,6 @@ public class ModuleMain extends XposedModule {
     private static final String CLS_TETHER_STATS = "com.miui.networkassistant.service.tm.TetherStatsManager";
     /** 安装包校验。 */
     private static final String CLS_PKG_VERIFY = "com.miui.permcenter.install.PackageVerificationReceiver";
-    /** 充电保护页（电池信息三项所在）。 */
-    private static final String CLS_CHARGE_PROTECT_FRAGMENT = "com.miui.powercenter.nightcharge.ChargeProtectFragment";
-    /** 电池实际容量节点（单位 µAh）。 */
-    private static final String SYSFS_CHARGE_FULL = "/sys/class/power_supply/battery/charge_full";
-    /** 电池设计容量节点（单位 µAh）。 */
-    private static final String SYSFS_CHARGE_FULL_DESIGN = "/sys/class/power_supply/battery/charge_full_design";
-
     private SharedPreferences prefs;
     private String processName = "";
     private volatile boolean debugLog = false;
@@ -147,7 +137,6 @@ public class ModuleMain extends XposedModule {
         hookAutoStart(cl);
         hookNetworkRestrict(cl);
         hookInstallVerify(cl);
-        hookBatteryInfo(cl);
         hookFastCharge(cl);
         hookSideRoadCharge(cl);
         hookBatteryHealth(cl);
@@ -896,192 +885,6 @@ public class ModuleMain extends XposedModule {
             // 忽略
         }
         return null;
-    }
-
-    // ------------------------------------------------------------------
-    // Hook：官改专区 —— 电池信息
-    // ------------------------------------------------------------------
-
-    /**
-     * 「安全中心 › 充电保护」页的电池信息。三项都来自 sysfs：
-     * <ul>
-     *   <li>{@code getActualCapacity()} 读 {@code charge_full} ÷ 1000 + "mAh"</li>
-     *   <li>{@code getDesignCapacity()} 读 {@code charge_full_design} ÷ 1000 + "mAh"</li>
-     *   <li>{@code getBatteryHealthInfo()} 由前两者相除算出百分比</li>
-     * </ul>
-     *
-     * <p>三者都是 <b>static</b> 方法，页面在 {@code onCreatePreferences} 里各调一次，
-     * 把结果塞进 TextPreference。对应 key：percentc / designc / actualc。</p>
-     *
-     * <p>两个干预方向：</p>
-     * <ul>
-     *   <li><b>回官方</b>：自己读 sysfs 重算，绕开其它模块对取值方法的改写，
-     *       让页面显示系统真实读数。</li>
-     *   <li><b>隐藏</b>：在 {@code onCreatePreferences} 之后按 key 移除对应偏好项。</li>
-     * </ul>
-     */
-    private void hookBatteryInfo(ClassLoader cl) {
-        Method health = findMethod(cl, CLS_CHARGE_PROTECT_FRAGMENT, "getBatteryHealthInfo");
-        if (health != null) {
-            try {
-                hook(health).setId("cf_batt_health").intercept(chain -> {
-                    ConfigSnapshot c = read();
-                    if (c.enabled && c.batteryOfficial) {
-                        String real = officialHealth();
-                        if (real != null) {
-                            d("电池健康度回官方：" + real);
-                            return real;
-                        }
-                    }
-                    return chain.proceed();
-                });
-                log(Log.INFO, TAG, "已 Hook 电池健康度");
-            } catch (Throwable t) {
-                log(Log.ERROR, TAG, "Hook getBatteryHealthInfo 失败", t);
-            }
-        }
-
-        Method design = findMethod(cl, CLS_CHARGE_PROTECT_FRAGMENT, "getDesignCapacity");
-        if (design != null) {
-            try {
-                hook(design).setId("cf_batt_design").intercept(chain -> {
-                    ConfigSnapshot c = read();
-                    if (c.enabled && c.batteryOfficial) {
-                        String real = officialCapacity(SYSFS_CHARGE_FULL_DESIGN);
-                        if (real != null) {
-                            d("设计容量回官方：" + real);
-                            return real;
-                        }
-                    }
-                    return chain.proceed();
-                });
-                log(Log.INFO, TAG, "已 Hook 设计容量");
-            } catch (Throwable t) {
-                log(Log.ERROR, TAG, "Hook getDesignCapacity 失败", t);
-            }
-        }
-
-        Method actual = findMethod(cl, CLS_CHARGE_PROTECT_FRAGMENT, "getActualCapacity");
-        if (actual != null) {
-            try {
-                hook(actual).setId("cf_batt_actual").intercept(chain -> {
-                    ConfigSnapshot c = read();
-                    if (c.enabled && c.batteryOfficial) {
-                        String real = officialCapacity(SYSFS_CHARGE_FULL);
-                        if (real != null) {
-                            d("实际容量回官方：" + real);
-                            return real;
-                        }
-                    }
-                    return chain.proceed();
-                });
-                log(Log.INFO, TAG, "已 Hook 实际容量");
-            } catch (Throwable t) {
-                log(Log.ERROR, TAG, "Hook getActualCapacity 失败", t);
-            }
-        }
-
-        Method onPrefs = findMethod(cl, CLS_CHARGE_PROTECT_FRAGMENT, "onCreatePreferences",
-                Bundle.class, String.class);
-        if (onPrefs != null) {
-            try {
-                hook(onPrefs).setId("cf_batt_hide").intercept(chain -> {
-                    Object result = chain.proceed();
-                    ConfigSnapshot c = read();
-                    if (c.enabled) {
-                        Object fragment = chain.getThisObject();
-                        if (c.hideHealth) {
-                            removePreference(fragment, "percentc");
-                        }
-                        if (c.hideDesign) {
-                            removePreference(fragment, "designc");
-                        }
-                        if (c.hideActual) {
-                            removePreference(fragment, "actualc");
-                        }
-                    }
-                    return result;
-                });
-                log(Log.INFO, TAG, "已 Hook 电池信息隐藏");
-            } catch (Throwable t) {
-                log(Log.ERROR, TAG, "Hook onCreatePreferences 失败", t);
-            }
-        }
-    }
-
-    /** 从偏好树里摘掉指定 key 的项。全程反射，编译期不依赖 androidx.preference。 */
-    private void removePreference(Object fragment, String key) {
-        if (fragment == null) {
-            return;
-        }
-        try {
-            Class<?> fragClass = fragment.getClass();
-
-            Method findPreference = null;
-            for (Class<?> cls = fragClass; cls != null && findPreference == null; cls = cls.getSuperclass()) {
-                try {
-                    findPreference = cls.getDeclaredMethod("findPreference", CharSequence.class);
-                } catch (NoSuchMethodException ignored) {
-                    // 往父类找
-                }
-            }
-            if (findPreference == null) {
-                return;
-            }
-            findPreference.setAccessible(true);
-            Object item = findPreference.invoke(fragment, key);
-            if (item == null) {
-                return;
-            }
-
-            Method getScreen = fragClass.getMethod("getPreferenceScreen");
-            Object screen = getScreen.invoke(fragment);
-            if (screen == null) {
-                return;
-            }
-
-            Method remove = screen.getClass().getMethod("removePreference",
-                    Class.forName("androidx.preference.Preference", false, fragClass.getClassLoader()));
-            remove.setAccessible(true);
-            remove.invoke(screen, item);
-            d("已隐藏电池信息项：" + key);
-        } catch (Throwable t) {
-            log(Log.WARN, TAG, "隐藏 " + key + " 失败: " + t);
-        }
-    }
-
-    /** 读 sysfs 容量节点，返回「整数 + mAh」；读不到返回 null。 */
-    private static String officialCapacity(String path) {
-        try {
-            BufferedReader reader = new BufferedReader(new FileReader(path));
-            String line = reader.readLine();
-            reader.close();
-            if (line == null) {
-                return null;
-            }
-            return Integer.toString(Integer.parseInt(line.trim()) / 1000) + "mAh";
-        } catch (Throwable t) {
-            return null;
-        }
-    }
-
-    /** 用两个 sysfs 节点算健康度，绕开其它模块对取值方法的改写。 */
-    private static String officialHealth() {
-        String actual = officialCapacity(SYSFS_CHARGE_FULL);
-        String design = officialCapacity(SYSFS_CHARGE_FULL_DESIGN);
-        if (actual == null || design == null) {
-            return null;
-        }
-        try {
-            float a = Float.parseFloat(actual.replace("mAh", ""));
-            float d = Float.parseFloat(design.replace("mAh", ""));
-            if (d <= 0f) {
-                return null;
-            }
-            return String.format(Locale.getDefault(), "%.2f%%", a / d * 100f);
-        } catch (Throwable t) {
-            return null;
-        }
     }
 
     // ------------------------------------------------------------------
