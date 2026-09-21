@@ -28,3 +28,6 @@ keystore.properties
 
 # Old version backups, not part of the repo
 .backup/
+
+# Third-party plugin sources, not part of the repo
+lspilot/
