@@ -31,8 +31,8 @@ android {
         applicationId = "io.github.yuhj319.meowpower"
         minSdk = 29
         targetSdk = 37
-        versionCode = 4
-        versionName = "4.0"
+        versionCode = 5
+        versionName = "5.0"
     }
 
     signingConfigs {

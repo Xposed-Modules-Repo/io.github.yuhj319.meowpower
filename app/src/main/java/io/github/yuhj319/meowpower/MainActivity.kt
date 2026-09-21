@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -51,20 +52,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -891,12 +892,11 @@ private fun AboutHero() {
             ),
         contentAlignment = Alignment.Center,
     ) {
-        FloatingDots(slide = slide)
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(vertical = 22.dp),
         ) {
-            CatFace(transition = transition)
+            CollidingIcons(transition = transition)
             Spacer(modifier = Modifier.height(10.dp))
             BasicText(
                 text = "喵力全开",
@@ -919,188 +919,101 @@ private fun AboutHero() {
                     fontWeight = FontWeight.Black,
                 ),
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            PawRow(transition = transition)
         }
     }
 }
 
-/** 横幅背景里漂浮的半透明圆点。 */
+/** 一对图标对撞：从两侧靠近→撞击挤压→弹回，撞击瞬间炸出闪光。 */
 @Composable
-private fun BoxScope.FloatingDots(slide: Float) {
-    Canvas(modifier = Modifier.matchParentSize()) {
-        val w = size.width
-        val h = size.height
-        drawCircle(Color.White.copy(alpha = 0.14f), 46f, Offset(w * slide, h * 0.25f))
-        drawCircle(Color.White.copy(alpha = 0.10f), 70f, Offset(w * (1f - slide), h * 0.8f))
-        drawCircle(Color.White.copy(alpha = 0.12f), 26f, Offset(w * ((slide + 0.5f) % 1f), h * 0.55f))
-    }
-}
-
-/** 眨眼摇摆的猫头，周围三颗星星持续公转。纯 Canvas 手绘。 */
-@Composable
-private fun CatFace(transition: InfiniteTransition) {
-    val blink by transition.animateFloat(
+private fun CollidingIcons(transition: InfiniteTransition) {
+    val approach by transition.animateFloat(
+        initialValue = -92f,
+        targetValue = -92f,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes {
+                durationMillis = 2400
+                -92f at 0
+                -36f at 900
+                -36f at 1100
+                -92f at 2400
+            },
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "approach",
+    )
+    val squash by transition.animateFloat(
         initialValue = 1f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = keyframes {
-                durationMillis = 4200
+                durationMillis = 2400
                 1f at 0
-                1f at 3800
-                0.08f at 3930
-                1f at 4060
+                1f at 800
+                0.8f at 950
+                1f at 1150
             },
             repeatMode = RepeatMode.Restart,
         ),
-        label = "blink",
+        label = "squash",
     )
-    val spin by transition.animateFloat(
+    val flash by transition.animateFloat(
         initialValue = 0f,
-        targetValue = 360f,
+        targetValue = 0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 9000, easing = LinearEasing),
+            animation = keyframes {
+                durationMillis = 2400
+                0f at 0
+                0f at 850
+                1f at 950
+                0f at 1200
+            },
             repeatMode = RepeatMode.Restart,
         ),
-        label = "spin",
+        label = "flash",
     )
-    val bob by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = -10f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1200, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "bob",
-    )
-    Canvas(modifier = Modifier.size(132.dp)) {
-        val cx = size.width / 2f
-        val cy = size.height / 2f + 6f
-        val r = size.minDimension * 0.30f
-        val orange = Color(0xFFFFA726)
-        val pink = Color(0xFFFFB3C1)
-        val dark = Color(0xFF3A2E2E)
-        translate(top = bob) {
-            // 耳朵
-            drawPath(
-                path = Path().apply {
-                    moveTo(cx - r * 0.78f, cy - r * 0.45f)
-                    lineTo(cx - r * 1.02f, cy - r * 1.28f)
-                    lineTo(cx - r * 0.10f, cy - r * 0.80f)
-                    close()
-                },
-                color = orange,
-            )
-            drawPath(
-                path = Path().apply {
-                    moveTo(cx + r * 0.78f, cy - r * 0.45f)
-                    lineTo(cx + r * 1.02f, cy - r * 1.28f)
-                    lineTo(cx + r * 0.10f, cy - r * 0.80f)
-                    close()
-                },
-                color = orange,
-            )
-            drawPath(
-                path = Path().apply {
-                    moveTo(cx - r * 0.62f, cy - r * 0.55f)
-                    lineTo(cx - r * 0.76f, cy - r * 1.02f)
-                    lineTo(cx - r * 0.28f, cy - r * 0.78f)
-                    close()
-                },
-                color = pink,
-            )
-            drawPath(
-                path = Path().apply {
-                    moveTo(cx + r * 0.62f, cy - r * 0.55f)
-                    lineTo(cx + r * 0.76f, cy - r * 1.02f)
-                    lineTo(cx + r * 0.28f, cy - r * 0.78f)
-                    close()
-                },
-                color = pink,
-            )
-            // 脸盘
-            drawCircle(color = orange, radius = r, center = Offset(cx, cy))
-            // 眼睛（纵向缩放实现眨眼）
-            val ew = r * 0.20f
-            val eh = (r * 0.30f * blink).coerceAtLeast(2f)
-            drawOval(
-                color = dark,
-                topLeft = Offset(cx - r * 0.42f - ew, cy - r * 0.10f - eh),
-                size = Size(ew * 2f, eh * 2f),
-            )
-            drawOval(
-                color = dark,
-                topLeft = Offset(cx + r * 0.42f - ew, cy - r * 0.10f - eh),
-                size = Size(ew * 2f, eh * 2f),
-            )
-            // 腮红
-            drawCircle(color = pink.copy(alpha = 0.7f), radius = r * 0.16f, center = Offset(cx - r * 0.62f, cy + r * 0.35f))
-            drawCircle(color = pink.copy(alpha = 0.7f), radius = r * 0.16f, center = Offset(cx + r * 0.62f, cy + r * 0.35f))
-            // 鼻子
-            drawPath(
-                path = Path().apply {
-                    moveTo(cx - r * 0.10f, cy + r * 0.22f)
-                    lineTo(cx + r * 0.10f, cy + r * 0.22f)
-                    lineTo(cx, cy + r * 0.34f)
-                    close()
-                },
-                color = pink,
-            )
-            // 胡须
-            val whisker = Color.White.copy(alpha = 0.85f)
-            val stroke = 3f
-            drawLine(whisker, Offset(cx - r * 0.95f, cy + r * 0.25f), Offset(cx - r * 0.45f, cy + r * 0.32f), stroke, StrokeCap.Round)
-            drawLine(whisker, Offset(cx - r * 0.95f, cy + r * 0.48f), Offset(cx - r * 0.45f, cy + r * 0.44f), stroke, StrokeCap.Round)
-            drawLine(whisker, Offset(cx + r * 0.95f, cy + r * 0.25f), Offset(cx + r * 0.45f, cy + r * 0.32f), stroke, StrokeCap.Round)
-            drawLine(whisker, Offset(cx + r * 0.95f, cy + r * 0.48f), Offset(cx + r * 0.45f, cy + r * 0.44f), stroke, StrokeCap.Round)
-        }
-        // 公转的星星
-        rotate(degrees = spin, pivot = Offset(cx, cy)) {
-            val star = Color.White.copy(alpha = 0.9f)
-            sparkle(center = Offset(cx, cy - r * 1.55f), size = 14f, color = star)
-            sparkle(center = Offset(cx + r * 1.45f, cy + r * 0.55f), size = 10f, color = star)
-            sparkle(center = Offset(cx - r * 1.45f, cy + r * 0.55f), size = 10f, color = star)
-        }
-    }
-}
-
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.sparkle(
-    center: Offset,
-    size: Float,
-    color: Color,
-) {
-    drawLine(color, Offset(center.x - size, center.y), Offset(center.x + size, center.y), 4f, StrokeCap.Round)
-    drawLine(color, Offset(center.x, center.y - size), Offset(center.x, center.y + size), 4f, StrokeCap.Round)
-}
-
-/** 三枚依次蹦跶的爪印。 */
-@Composable
-private fun PawRow(transition: InfiniteTransition) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(18.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(150.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        repeat(3) { index ->
-            val bounce by transition.animateFloat(
-                initialValue = 0f,
-                targetValue = -16f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 650, delayMillis = index * 200, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse,
-                ),
-                label = "paw$index",
-            )
-            Canvas(modifier = Modifier.size(30.dp)) {
-                translate(top = bounce) {
-                    val c = Color.White.copy(alpha = 0.92f)
-                    drawOval(c, Offset(size.width * 0.5f - 13f, size.height * 0.55f - 10f), Size(26f, 20f))
-                    drawCircle(c, 6f, Offset(size.width * 0.22f, size.height * 0.32f))
-                    drawCircle(c, 6f, Offset(size.width * 0.5f, size.height * 0.22f))
-                    drawCircle(c, 6f, Offset(size.width * 0.78f, size.height * 0.32f))
-                }
+        Canvas(modifier = Modifier.matchParentSize()) {
+            if (flash > 0.01f) {
+                val c = Offset(size.width / 2f, size.height / 2f)
+                val col = Color.White.copy(alpha = 0.9f * flash)
+                drawCircle(color = col.copy(alpha = 0.3f * flash), radius = 24f + 56f * flash, center = c)
+                val r = 26f + 64f * flash
+                val w = 7f
+                drawLine(col, c + Offset(-r, 0f), c + Offset(r, 0f), w, StrokeCap.Round)
+                drawLine(col, c + Offset(0f, -r), c + Offset(0f, r), w, StrokeCap.Round)
+                drawLine(col, c + Offset(-r * 0.7f, -r * 0.7f), c + Offset(r * 0.7f, r * 0.7f), w, StrokeCap.Round)
+                drawLine(col, c + Offset(-r * 0.7f, r * 0.7f), c + Offset(r * 0.7f, -r * 0.7f), w, StrokeCap.Round)
             }
         }
+        IconFighter(xDp = approach, squash = squash, tilt = -1f)
+        IconFighter(xDp = -approach, squash = squash, tilt = 1f)
     }
+}
+
+/** 对撞的一方：位置由 [xDp] 驱动，撞击时压扁并微微回正倾斜。 */
+@Composable
+private fun BoxScope.IconFighter(xDp: Float, squash: Float, tilt: Float) {
+    val progress = ((xDp + 36f) / -56f).coerceIn(0f, 1f)
+    Image(
+        painter = painterResource(R.drawable.sign),
+        contentDescription = "meow",
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .align(Alignment.Center)
+            .offset(x = xDp.dp)
+            .size(72.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .graphicsLayer {
+                scaleX = squash
+                scaleY = 1f + (1f - squash) * 0.6f
+                rotationZ = tilt * progress * 10f
+            },
+    )
 }
 
 /** 可点击跳转浏览器的链接行。 */
@@ -1162,11 +1075,14 @@ private fun PageTitle(text: String) {
  */
 @Composable
 private fun HonorPayWall(onConfirm: () -> Unit) {
+    var showConfirm by remember { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 32.dp),
+        // 内容不足一屏时整体居中，避免全挤在上半屏；超出一屏时仍可正常滚动
+        verticalArrangement = Arrangement.Center,
     ) {
-        item { PageTitle("诚信付款") }
+        item { PageTitle("付款支持") }
 
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
@@ -1176,10 +1092,14 @@ private fun HonorPayWall(onConfirm: () -> Unit) {
                     Text(text = "本模块售价 8 元", fontSize = 15.sp)
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "不设功能限制，也没有试用版。\n" +
-                                "这里不做付款校验，全凭诚信 ——\n" +
-                                "请扫码付款后，点下方按钮进入。",
+                        text = "扫码支付 8 元即可进入使用，不设功能限制，也没有试用版。",
                         fontSize = 13.sp,
+                        color = Color.Gray,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "诚信付款，不做校验",
+                        fontSize = 11.sp,
                         color = Color.Gray,
                     )
                 }
@@ -1201,13 +1121,65 @@ private fun HonorPayWall(onConfirm: () -> Unit) {
         }
 
         item {
-            TextButton(
-                text = "我已付款 8 元，进入",
-                onClick = onConfirm,
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-            )
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                BasicText(
+                    text = "已支付 8 元，进入",
+                    style = TextStyle(
+                        color = Color(0xFF2E7CF6),
+                        fontSize = 13.sp,
+                        textDecoration = TextDecoration.Underline,
+                    ),
+                    modifier = Modifier.clickable { showConfirm = true },
+                )
+            }
+            if (showConfirm) {
+                PayConfirmDialog(
+                    onPaid = onConfirm,
+                    onDismiss = { showConfirm = false },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 付款二次确认框：「我已付款」蓝色高亮，点后进入；
+ * 「未付款」灰色弱化，点后关框回到付款页。点框外同样回到付款页。
+ */
+@Composable
+private fun PayConfirmDialog(onPaid: () -> Unit, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(text = "付款确认", fontSize = 16.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+                BasicText(
+                    text = "我已付款",
+                    style = TextStyle(
+                        color = Color(0xFF2E7CF6),
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    modifier = Modifier.clickable { onPaid() },
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                BasicText(
+                    text = "未付款",
+                    style = TextStyle(
+                        color = Color.Gray.copy(alpha = 0.6f),
+                        fontSize = 12.sp,
+                    ),
+                    modifier = Modifier.clickable { onDismiss() },
+                )
+            }
         }
     }
 }
