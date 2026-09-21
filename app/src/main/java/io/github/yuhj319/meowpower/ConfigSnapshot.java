@@ -34,6 +34,7 @@ public final class ConfigSnapshot {
             false,  // noInstallVerify
             false,  // fakeHealth
             4,      // healthLevel
+            "",     // uiHealthText
             false   // debugLog
     );
 
@@ -62,6 +63,7 @@ public final class ConfigSnapshot {
     public final boolean noInstallVerify;
     public final boolean fakeHealth;
     public final int healthLevel;
+    public final String uiHealthText;
     public final boolean debugLog;
 
     private ConfigSnapshot(boolean enabled, boolean killNightEntry, boolean killNightState,
@@ -74,7 +76,7 @@ public final class ConfigSnapshot {
                            boolean noNetworkRestrict, boolean noBgNetworkRestrict,
                            boolean noTrafficCutoff, boolean noTetherLimit, boolean noInstallVerify,
 
-                           boolean fakeHealth, int healthLevel, boolean debugLog) {
+                           boolean fakeHealth, int healthLevel, String uiHealthText, boolean debugLog) {
         this.enabled = enabled;
         this.killNightEntry = killNightEntry;
         this.killNightState = killNightState;
@@ -100,6 +102,7 @@ public final class ConfigSnapshot {
         this.noInstallVerify = noInstallVerify;
         this.fakeHealth = fakeHealth;
         this.healthLevel = clamp(healthLevel, 1, 4);
+        this.uiHealthText = uiHealthText == null ? "" : uiHealthText;
         this.debugLog = debugLog;
     }
 
@@ -134,6 +137,7 @@ public final class ConfigSnapshot {
                     prefs.getBoolean(Config.KEY_NO_INSTALL_VERIFY, false),
                     prefs.getBoolean(Config.KEY_FAKE_HEALTH, false),
                     prefs.getInt(Config.KEY_HEALTH_LEVEL, 4),
+                    prefs.getString(Config.KEY_UI_HEALTH_TEXT, ""),
                     prefs.getBoolean(Config.KEY_DEBUG_LOG, false)
             );
         } catch (Throwable t) {

@@ -41,6 +41,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -56,6 +57,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -143,6 +145,7 @@ private data class UiConfig(
     val noInstallVerify: Boolean = false,
     val fakeHealth: Boolean = false,
     val healthLevel: Int = 4,
+    val uiHealthText: String = "",
     val debugLog: Boolean = false,
 )
 
@@ -176,6 +179,7 @@ private fun readConfig(prefs: SharedPreferences?): UiConfig {
         noInstallVerify = prefs.getBoolean(Config.KEY_NO_INSTALL_VERIFY, false),
         fakeHealth = prefs.getBoolean(Config.KEY_FAKE_HEALTH, false),
         healthLevel = prefs.getInt(Config.KEY_HEALTH_LEVEL, 4),
+        uiHealthText = prefs.getString(Config.KEY_UI_HEALTH_TEXT, "") ?: "",
         debugLog = prefs.getBoolean(Config.KEY_DEBUG_LOG, false),
     )
 }
@@ -277,6 +281,11 @@ private fun MeowPowerApp() {
         config = apply(config)
     }
 
+    fun setString(key: String, value: String, apply: (UiConfig) -> UiConfig) {
+        prefs?.edit()?.putString(key, value)?.apply()
+        config = apply(config)
+    }
+
     LaunchedEffect(Unit) {
         while (true) {
             val latest = App.getService()
@@ -335,6 +344,7 @@ private fun MeowPowerApp() {
                     config = config,
                     onBool = { key, value, apply -> setBool(key, value, apply) },
                     onInt = { key, value, apply -> setInt(key, value, apply) },
+                    onString = { key, value, apply -> setString(key, value, apply) },
                 )
 
                 2 -> SystemPage(
@@ -420,6 +430,7 @@ private fun ChargePage(
     config: UiConfig,
     onBool: (String, Boolean, (UiConfig) -> UiConfig) -> Unit,
     onInt: (String, Int, (UiConfig) -> UiConfig) -> Unit,
+    onString: (String, String, (UiConfig) -> UiConfig) -> Unit,
 ) {
     val enabled = config.enabled
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -592,6 +603,15 @@ private fun ChargePage(
                     steps = 2,
                     enabled = enabled && config.fakeHealth,
                     insideMargin = PaddingValues(16.dp, 12.dp, 16.dp, 8.dp),
+                )
+                TextInputRow(
+                    title = "自定义健康度显示",
+                    brief = "只改充电保护页那一处百分比。留空不修改，填什么显示什么。",
+                    value = config.uiHealthText,
+                    enabled = enabled,
+                    onValueChange = {
+                        onString(Config.KEY_UI_HEALTH_TEXT, it) { c -> c.copy(uiHealthText = it) }
+                    },
                 )
             }
         }
@@ -1252,6 +1272,45 @@ private fun SettingItem(
     )
 
     ExpandableDetail(detail = detail, expanded = expanded, onToggle = { expanded = !expanded })
+}
+
+/** 单行文本输入行：标题 + 说明 + 输入框，空值显示占位提示。 */
+@Composable
+private fun TextInputRow(
+    title: String,
+    brief: String,
+    value: String,
+    enabled: Boolean,
+    onValueChange: (String) -> Unit,
+) {
+    val inputColor = if (isSystemInDarkTheme()) Color.White else Color.Black
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Text(text = title, fontSize = 15.sp)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(text = brief, fontSize = 12.sp, color = Color.Gray)
+        Spacer(modifier = Modifier.height(8.dp))
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            enabled = enabled,
+            singleLine = true,
+            textStyle = TextStyle(fontSize = 15.sp, color = inputColor),
+            cursorBrush = SolidColor(inputColor),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.Gray.copy(alpha = 0.15f))
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            decorationBox = { inner ->
+                Box {
+                    if (value.isEmpty()) {
+                        Text(text = "如：88%", fontSize = 15.sp, color = Color.Gray)
+                    }
+                    inner()
+                }
+            },
+        )
+    }
 }
 
 /** 给滑块 / 下拉项用的详情行，视觉与 [SettingItem] 一致。 */

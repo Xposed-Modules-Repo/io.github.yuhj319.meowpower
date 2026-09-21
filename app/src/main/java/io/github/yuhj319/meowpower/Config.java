@@ -87,6 +87,9 @@ public final class Config {
     /** 伪装的健康度等级，取值 1~4（1 最差，4 最好）。 */
     public static final String KEY_HEALTH_LEVEL = "health_level";
 
+    /** 插件：修改UI健康度 —— 自定义显示文本，为空表示不修改。 */
+    public static final String KEY_UI_HEALTH_TEXT = "ui_health_text";
+
     /** 是否输出调试日志（TAG = MeowPower）。 */
     public static final String KEY_DEBUG_LOG = "debug_log";
 

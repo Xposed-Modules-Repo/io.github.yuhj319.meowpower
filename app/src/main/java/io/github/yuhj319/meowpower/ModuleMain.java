@@ -1,16 +1,22 @@
 package io.github.yuhj319.meowpower;
 
+import android.app.Activity;
 import android.app.AppOpsManager;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.widget.EditText;
 
 import androidx.annotation.NonNull;
 
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 import io.github.libxposed.api.XposedModule;
 import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam;
@@ -93,6 +99,14 @@ public class ModuleMain extends XposedModule {
     private static final String CLS_TETHER_STATS = "com.miui.networkassistant.service.tm.TetherStatsManager";
     /** 安装包校验。 */
     private static final String CLS_PKG_VERIFY = "com.miui.permcenter.install.PackageVerificationReceiver";
+    /** 插件：修改UI健康度 —— 充电保护页。 */
+    private static final String CLS_CHARGER_PROTECT_ACTIVITY = "com.miui.powercenter.nightcharge.ChargerProtectActivity";
+    /** 插件：修改UI健康度 —— 健康度百分比的资源名关键字。 */
+    private static final String RES_HEALTH_PERCENT = "percent_formatted_text";
+    /** 字符串值 -> 资源名（Resources.getText/getString 顺手记录，只记百分数字符串）。 */
+    private static final ConcurrentHashMap<String, String> VALUE2RES = new ConcurrentHashMap<>();
+    /** 最近一次进入的充电保护页（Context 链取不到 Activity 时的兜底）。 */
+    private static volatile String lastActivity = "?";
     private SharedPreferences prefs;
     private String processName = "";
     private volatile boolean debugLog = false;
@@ -140,6 +154,7 @@ public class ModuleMain extends XposedModule {
         hookFastCharge(cl);
         hookSideRoadCharge(cl);
         hookBatteryHealth(cl);
+        hookUiHealth(cl);
 
     }
 
@@ -1065,5 +1080,167 @@ public class ModuleMain extends XposedModule {
         if (debugLog) {
             log(Log.INFO, TAG, message);
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Hook：插件「修改UI健康度」（移植自 lspilot TextPatch 插件 main.java）
+    // ------------------------------------------------------------------
+
+    /**
+     * 把充电保护页（ChargerProtectActivity）上电池健康度百分比的显示改写成
+     * 配置里的自定义文本，其它文本一律不动。配置为空时不做任何修改。
+     *
+     * <p>识别链路与原插件一致：先顺手记下 {@code Resources.getText/getString}
+     * 返回的百分数字符串对应的资源名，再在 {@code TextView.setText} 里按
+     * 「资源名 + 页面」双条件命中。原插件的 #112 内部编号是易漂移的计数器，
+     * 这里不用，只用资源名判定，更稳。</p>
+     *
+     * <p>无 UI 开关，跟随模块总开关。</p>
+     */
+    private void hookUiHealth(ClassLoader cl) {
+        Method getText = findMethod(cl, "android.content.res.Resources", "getText", int.class);
+        if (getText != null) {
+            try {
+                hook(getText).setId("cf_ui_health_gettext").intercept(chain -> {
+                    Object result = chain.proceed();
+                    capUiRes(chain.getThisObject(), chain.getArg(0), result);
+                    return result;
+                });
+            } catch (Throwable t) {
+                log(Log.ERROR, TAG, "Hook Resources.getText 失败", t);
+            }
+        }
+
+        Method getString = findMethod(cl, "android.content.res.Resources", "getString", int.class);
+        if (getString != null) {
+            try {
+                hook(getString).setId("cf_ui_health_getstring").intercept(chain -> {
+                    Object result = chain.proceed();
+                    capUiRes(chain.getThisObject(), chain.getArg(0), result);
+                    return result;
+                });
+            } catch (Throwable t) {
+                log(Log.ERROR, TAG, "Hook Resources.getString 失败", t);
+            }
+        }
+
+        try {
+            Class<?> bufferType = Class.forName("android.widget.TextView$BufferType", false, cl);
+            Method setText = findMethod(cl, "android.widget.TextView", "setText",
+                    CharSequence.class, bufferType);
+            if (setText != null) {
+                hook(setText).setId("cf_ui_health_settext").intercept(chain -> {
+                    ConfigSnapshot c = read();
+                    if (!c.enabled) {
+                        return chain.proceed();
+                    }
+                    String target = c.uiHealthText;
+                    if (target == null || target.isEmpty()) {
+                        return chain.proceed();
+                    }
+                    Object a0 = chain.getArg(0);
+                    if (!(a0 instanceof CharSequence)) {
+                        return chain.proceed();
+                    }
+                    String txt = a0.toString();
+                    if (txt == null || txt.isEmpty()
+                            || target.equals(txt)
+                            || !isPercentText(txt)) {
+                        return chain.proceed();
+                    }
+                    Object thisObj = chain.getThisObject();
+                    if (thisObj instanceof EditText) {
+                        return chain.proceed();
+                    }
+                    String rn = VALUE2RES.get(txt);
+                    if (rn == null || rn.indexOf(RES_HEALTH_PERCENT) < 0) {
+                        return chain.proceed();
+                    }
+                    String act = activityOf(thisObj);
+                    if (act != null && act.length() > 0 && !"?".equals(act)
+                            && act.indexOf("ChargerProtectActivity") < 0) {
+                        return chain.proceed();
+                    }
+                    d("[修改UI健康度] 命中 [" + rn + "] @ " + act + " : " + txt
+                            + " ==> " + target);
+                    Object[] args = chain.getArgs().toArray();
+                    args[0] = target;
+                    return chain.proceed(args);
+                });
+                log(Log.INFO, TAG, "已 Hook 修改UI健康度");
+            }
+        } catch (Throwable t) {
+            log(Log.ERROR, TAG, "Hook TextView.setText 失败", t);
+        }
+
+        try {
+            Class<?> actCls = Class.forName(CLS_CHARGER_PROTECT_ACTIVITY, false, cl);
+            Method onCreate = actCls.getDeclaredMethod("onCreate", Bundle.class);
+            onCreate.setAccessible(true);
+            hook(onCreate).setId("cf_ui_health_act").intercept(chain -> {
+                lastActivity = CLS_CHARGER_PROTECT_ACTIVITY;
+                return chain.proceed();
+            });
+        } catch (Throwable t) {
+            log(Log.WARN, TAG, "充电保护页不存在，跳过页面追踪");
+        }
+    }
+
+    /** 顺手记录百分数字符串对应的资源名（getResourceName 未被 Hook，无重入）。 */
+    private void capUiRes(Object thisObj, Object idArg, Object result) {
+        if (!(thisObj instanceof Resources)) {
+            return;
+        }
+        if (!(idArg instanceof Integer) || !(result instanceof CharSequence)) {
+            return;
+        }
+        String txt = result.toString();
+        if (!isPercentText(txt)) {
+            return;
+        }
+        try {
+            String rn = ((Resources) thisObj).getResourceName((Integer) idArg);
+            if (rn != null) {
+                VALUE2RES.put(txt, rn);
+            }
+        } catch (Throwable ignored) {
+            // 资源 id 非法，忽略
+        }
+    }
+
+    /** 粗判百分数字符串，如 "100%"（只记这种，降开销）。 */
+    private static boolean isPercentText(String s) {
+        if (s == null) {
+            return false;
+        }
+        int n = s.length();
+        if (n < 2 || n > 5 || s.charAt(n - 1) != '%') {
+            return false;
+        }
+        for (int i = 0; i < n - 1; i++) {
+            char ch = s.charAt(i);
+            if (ch < '0' || ch > '9') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** 文本所属 Activity 全类名；Context 链走不通时用最近一次的充电保护页兜底。 */
+    private static String activityOf(Object view) {
+        if (view instanceof View) {
+            Context ctx = ((View) view).getContext();
+            for (int i = 0; ctx != null && i < 20; i++) {
+                if (ctx instanceof Activity) {
+                    return ctx.getClass().getName();
+                }
+                if (ctx instanceof ContextWrapper) {
+                    ctx = ((ContextWrapper) ctx).getBaseContext();
+                } else {
+                    break;
+                }
+            }
+        }
+        return lastActivity != null ? lastActivity : "?";
     }
 }
