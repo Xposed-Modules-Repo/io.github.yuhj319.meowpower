@@ -1,4 +1,4 @@
-# MeowPower
+# MeowPower For HyperOS
 
 自由调节小米安全中心（`com.miui.securitycenter`）的充电策略，去除充电限制。
 
