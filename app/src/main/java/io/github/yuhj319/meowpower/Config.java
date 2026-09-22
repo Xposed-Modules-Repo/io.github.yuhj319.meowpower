@@ -93,9 +93,6 @@ public final class Config {
     /** 是否输出调试日志（TAG = MeowPower）。 */
     public static final String KEY_DEBUG_LOG = "debug_log";
 
-    /** 诚信付款已完成（激活标记）。存 RemotePreferences，重装模块不丢。 */
-    public static final String KEY_HONOR_DONE = "honor_done";
-
     /** 限制百分比的"不限制"取值。 */
     public static final int LIMIT_UNLIMITED = 100;
 

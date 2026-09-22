@@ -194,6 +194,23 @@ private const val REFRESH_INTERVAL_MS = 2000L
 /** 界面自身的偏好，与 Hook 侧读取的 RemotePreferences 无关。 */
 private const val UI_PREFS = "meow_ui"
 private const val KEY_HONOR_DONE = "honor_done"
+/** 付款时的安装戳（PackageInfo.lastUpdateTime），覆盖安装 / 升级会变，变了就重置激活。 */
+private const val KEY_HONOR_STAMP = "honor_install_stamp"
+
+private fun currentInstallStamp(context: Context): Long = try {
+    @Suppress("DEPRECATION")
+    context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
+} catch (_: Exception) {
+    -1L
+}
+
+/** 激活有效 = 标记为真且安装戳未变；覆盖安装或升级后戳变，自动回到付款页。 */
+private fun isHonorValid(context: Context, uiPrefs: SharedPreferences): Boolean {
+    if (!uiPrefs.getBoolean(KEY_HONOR_DONE, false)) return false
+    val stamp = uiPrefs.getLong(KEY_HONOR_STAMP, -1L)
+    val current = currentInstallStamp(context)
+    return current != -1L && stamp == current
+}
 
 private val FAST_CHARGE_OPTIONS = listOf("不干预", "强制开启", "强制关闭")
 private val BYPASS_OPTIONS = listOf("不干预", "阻止自动开启", "阻止自动停止")
@@ -223,13 +240,12 @@ private fun rememberTabs(): List<Tab> = remember {
 private fun MeowPowerApp() {
     val context = LocalContext.current
 
-    // 首次进入先过一遍诚信付款页。标记同时存本地与 RemotePreferences：
-    // 本地读得快，RemotePreferences 在 LSPosed 框架侧，重装模块不丢。
+    // 首次进入先过一遍诚信付款页。覆盖安装 / 升级会改安装戳，激活自动重置。
     val uiPrefs = remember(context) {
         context.getSharedPreferences(UI_PREFS, Context.MODE_PRIVATE)
     }
     var honorDone by remember {
-        mutableStateOf(uiPrefs.getBoolean(KEY_HONOR_DONE, false))
+        mutableStateOf(isHonorValid(context, uiPrefs))
     }
     val scope = rememberCoroutineScope()
     val tabs = rememberTabs()
@@ -238,28 +254,13 @@ private fun MeowPowerApp() {
     var prefs by remember { mutableStateOf(loadRemotePrefs(service)) }
     var config by remember { mutableStateOf(readConfig(prefs)) }
 
-    /** 激活标记双向同步：本地有则补写远端，远端有则回填本地。 */
-    fun syncHonor() {
-        val p = prefs ?: return
-        if (honorDone) {
-            if (!p.getBoolean(Config.KEY_HONOR_DONE, false)) {
-                p.edit()?.putBoolean(Config.KEY_HONOR_DONE, true)?.apply()
-            }
-        } else if (p.getBoolean(Config.KEY_HONOR_DONE, false)) {
-            uiPrefs.edit()?.putBoolean(KEY_HONOR_DONE, true)?.apply()
-            honorDone = true
-        }
-    }
-
-    // 框架 binder 一送达就刷新状态，不用等 2 秒轮询；binder 线程回调，用 scope 切回主线程。
-    // 必须放在付款页 early return 之前，否则重装后本地标记为空时永远连不上远端同步。
+    // 框架 binder 一送达就刷新状态，不用等 2 秒轮询；binder 线程回调，用 scope 切回主线程
     DisposableEffect(Unit) {
         val listener = App.Listener { latest ->
             scope.launch {
                 service = latest
                 prefs = loadRemotePrefs(latest)
                 config = readConfig(prefs)
-                syncHonor()
             }
         }
         App.setListener(listener)
@@ -270,7 +271,6 @@ private fun MeowPowerApp() {
                 prefs = loadRemotePrefs(current)
                 config = readConfig(prefs)
             }
-            syncHonor()
         }
         onDispose { App.clearListener(listener) }
     }
@@ -278,8 +278,10 @@ private fun MeowPowerApp() {
     if (!honorDone) {
         HonorPayWall(
             onConfirm = {
-                uiPrefs.edit()?.putBoolean(KEY_HONOR_DONE, true)?.apply()
-                prefs?.edit()?.putBoolean(Config.KEY_HONOR_DONE, true)?.apply()
+                uiPrefs.edit()
+                    ?.putBoolean(KEY_HONOR_DONE, true)
+                    ?.putLong(KEY_HONOR_STAMP, currentInstallStamp(context))
+                    ?.apply()
                 honorDone = true
             },
         )
@@ -331,7 +333,6 @@ private fun MeowPowerApp() {
                 prefs = loadRemotePrefs(latest)
                 config = readConfig(prefs)
             }
-            syncHonor()
             rootAvailable = withContext(Dispatchers.IO) { RootShell.isRootAvailable() }
             chargeState = withContext(Dispatchers.IO) { ChargeMonitor.snapshot() }
             persistApplied = PersistManager.isApplied(context)
