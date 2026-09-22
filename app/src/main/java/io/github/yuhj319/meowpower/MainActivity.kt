@@ -223,23 +223,14 @@ private fun rememberTabs(): List<Tab> = remember {
 private fun MeowPowerApp() {
     val context = LocalContext.current
 
-    // 首次进入先过一遍诚信付款页
+    // 首次进入先过一遍诚信付款页。标记同时存本地与 RemotePreferences：
+    // 本地读得快，RemotePreferences 在 LSPosed 框架侧，重装模块不丢。
     val uiPrefs = remember(context) {
         context.getSharedPreferences(UI_PREFS, Context.MODE_PRIVATE)
     }
     var honorDone by remember {
         mutableStateOf(uiPrefs.getBoolean(KEY_HONOR_DONE, false))
     }
-    if (!honorDone) {
-        HonorPayWall(
-            onConfirm = {
-                uiPrefs.edit().putBoolean(KEY_HONOR_DONE, true).apply()
-                honorDone = true
-            },
-        )
-        return
-    }
-
     val scope = rememberCoroutineScope()
     val tabs = rememberTabs()
 
@@ -247,13 +238,28 @@ private fun MeowPowerApp() {
     var prefs by remember { mutableStateOf(loadRemotePrefs(service)) }
     var config by remember { mutableStateOf(readConfig(prefs)) }
 
-    // 框架 binder 一送达就刷新状态，不用等 2 秒轮询；binder 线程回调，用 scope 切回主线程
+    /** 激活标记双向同步：本地有则补写远端，远端有则回填本地。 */
+    fun syncHonor() {
+        val p = prefs ?: return
+        if (honorDone) {
+            if (!p.getBoolean(Config.KEY_HONOR_DONE, false)) {
+                p.edit()?.putBoolean(Config.KEY_HONOR_DONE, true)?.apply()
+            }
+        } else if (p.getBoolean(Config.KEY_HONOR_DONE, false)) {
+            uiPrefs.edit()?.putBoolean(KEY_HONOR_DONE, true)?.apply()
+            honorDone = true
+        }
+    }
+
+    // 框架 binder 一送达就刷新状态，不用等 2 秒轮询；binder 线程回调，用 scope 切回主线程。
+    // 必须放在付款页 early return 之前，否则重装后本地标记为空时永远连不上远端同步。
     DisposableEffect(Unit) {
         val listener = App.Listener { latest ->
             scope.launch {
                 service = latest
                 prefs = loadRemotePrefs(latest)
                 config = readConfig(prefs)
+                syncHonor()
             }
         }
         App.setListener(listener)
@@ -264,8 +270,20 @@ private fun MeowPowerApp() {
                 prefs = loadRemotePrefs(current)
                 config = readConfig(prefs)
             }
+            syncHonor()
         }
         onDispose { App.clearListener(listener) }
+    }
+
+    if (!honorDone) {
+        HonorPayWall(
+            onConfirm = {
+                uiPrefs.edit()?.putBoolean(KEY_HONOR_DONE, true)?.apply()
+                prefs?.edit()?.putBoolean(Config.KEY_HONOR_DONE, true)?.apply()
+                honorDone = true
+            },
+        )
+        return
     }
 
     var chargeState by remember { mutableStateOf<ChargeState?>(null) }
@@ -313,6 +331,7 @@ private fun MeowPowerApp() {
                 prefs = loadRemotePrefs(latest)
                 config = readConfig(prefs)
             }
+            syncHonor()
             rootAvailable = withContext(Dispatchers.IO) { RootShell.isRootAvailable() }
             chargeState = withContext(Dispatchers.IO) { ChargeMonitor.snapshot() }
             persistApplied = PersistManager.isApplied(context)
