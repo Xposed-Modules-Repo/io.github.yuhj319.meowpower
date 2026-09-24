@@ -75,6 +75,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.libxposed.service.XposedService
+import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -128,6 +129,7 @@ private data class UiConfig(
     val killNightState: Boolean = true,
     val killAllProtect: Boolean = false,
     val killCommonProtect: Boolean = false,
+    val overrideLimit: Boolean = true,
     val limitPercent: Int = 100,
     val fastChargeMode: Int = 0,
     val bypassMode: Int = 0,
@@ -162,6 +164,7 @@ private fun readConfig(prefs: SharedPreferences?): UiConfig {
         killNightState = prefs.getBoolean(Config.KEY_KILL_NIGHT_STATE, true),
         killAllProtect = prefs.getBoolean(Config.KEY_KILL_ALL_PROTECT, false),
         killCommonProtect = prefs.getBoolean(Config.KEY_KILL_COMMON_PROTECT, false),
+        overrideLimit = prefs.getBoolean(Config.KEY_OVERRIDE_LIMIT, true),
         limitPercent = prefs.getInt(Config.KEY_LIMIT_PERCENT, 100),
         fastChargeMode = prefs.getInt(Config.KEY_FAST_CHARGE_MODE, 0),
         bypassMode = prefs.getInt(Config.KEY_BYPASS_MODE, 0),
@@ -196,6 +199,11 @@ private const val UI_PREFS = "meow_ui"
 private const val KEY_HONOR_DONE = "honor_done"
 /** 付款时的安装戳（PackageInfo.lastUpdateTime），覆盖安装 / 升级会变，变了就重置激活。 */
 private const val KEY_HONOR_STAMP = "honor_install_stamp"
+private const val KEY_TRIAL_DONE = "trial_done"
+/** 试用时的安装戳，语义同付款戳，覆盖安装 / 升级后试用同样重置。 */
+private const val KEY_TRIAL_STAMP = "trial_install_stamp"
+/** 试用授权日期（LocalDate.toEpochDay），隔天即过期，需重新确认。 */
+private const val KEY_TRIAL_DATE = "trial_date"
 
 private fun currentInstallStamp(context: Context): Long = try {
     @Suppress("DEPRECATION")
@@ -210,6 +218,15 @@ private fun isHonorValid(context: Context, uiPrefs: SharedPreferences): Boolean 
     val stamp = uiPrefs.getLong(KEY_HONOR_STAMP, -1L)
     val current = currentInstallStamp(context)
     return current != -1L && stamp == current
+}
+
+/** 试用有效 = 标记为真、安装戳未变且授权日期是今天；隔天自动过期回到付款页。 */
+private fun isTrialValid(context: Context, uiPrefs: SharedPreferences): Boolean {
+    if (!uiPrefs.getBoolean(KEY_TRIAL_DONE, false)) return false
+    val stamp = uiPrefs.getLong(KEY_TRIAL_STAMP, -1L)
+    val current = currentInstallStamp(context)
+    if (current == -1L || stamp != current) return false
+    return uiPrefs.getLong(KEY_TRIAL_DATE, -1L) == LocalDate.now().toEpochDay()
 }
 
 private val FAST_CHARGE_OPTIONS = listOf("不干预", "强制开启", "强制关闭")
@@ -240,12 +257,16 @@ private fun rememberTabs(): List<Tab> = remember {
 private fun MeowPowerApp() {
     val context = LocalContext.current
 
-    // 首次进入先过一遍诚信付款页。覆盖安装 / 升级会改安装戳，激活自动重置。
+    // 首次进入先过一遍付款支持页。覆盖安装 / 升级会改安装戳，激活与试用自动重置。
     val uiPrefs = remember(context) {
         context.getSharedPreferences(UI_PREFS, Context.MODE_PRIVATE)
     }
+    val honorValid = isHonorValid(context, uiPrefs)
     var honorDone by remember {
-        mutableStateOf(isHonorValid(context, uiPrefs))
+        mutableStateOf(honorValid)
+    }
+    var isTrial by remember {
+        mutableStateOf(!honorValid && isTrialValid(context, uiPrefs))
     }
     val scope = rememberCoroutineScope()
     val tabs = rememberTabs()
@@ -275,7 +296,7 @@ private fun MeowPowerApp() {
         onDispose { App.clearListener(listener) }
     }
 
-    if (!honorDone) {
+    if (!honorDone && !isTrial) {
         HonorPayWall(
             onConfirm = {
                 uiPrefs.edit()
@@ -283,6 +304,14 @@ private fun MeowPowerApp() {
                     ?.putLong(KEY_HONOR_STAMP, currentInstallStamp(context))
                     ?.apply()
                 honorDone = true
+            },
+            onTrial = {
+                uiPrefs.edit()
+                    ?.putBoolean(KEY_TRIAL_DONE, true)
+                    ?.putLong(KEY_TRIAL_STAMP, currentInstallStamp(context))
+                    ?.putLong(KEY_TRIAL_DATE, LocalDate.now().toEpochDay())
+                    ?.apply()
+                isTrial = true
             },
         )
         return
@@ -374,6 +403,7 @@ private fun MeowPowerApp() {
                     chargeState = chargeState,
                     updatedAt = updatedAt,
                     enabled = config.enabled,
+                    isTrial = isTrial,
                     onEnabledChange = {
                         setBool(Config.KEY_ENABLED, it) { c -> c.copy(enabled = it) }
                     },
@@ -434,11 +464,18 @@ private fun HomePage(
     chargeState: ChargeState?,
     updatedAt: Long,
     enabled: Boolean,
+    isTrial: Boolean = false,
     onEnabledChange: (Boolean) -> Unit,
     onRestartScope: () -> Unit,
 ) {
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { PageHeader("喵力全开", onRestartScope) }
+        item {
+            PageHeader(
+                title = if (isTrial) "喵力全开（未授权）" else "喵力全开",
+                titleColor = if (isTrial) WARN_RED else null,
+                onRestartScope = onRestartScope,
+            )
+        }
         item { StatusHeroCard(service, hasPrefs) }
         item { StatusInfoCard(service, rootAvailable) }
 
@@ -544,12 +581,23 @@ private fun ChargePage(
                     valueText = if (config.limitPercent >= 100) "不限制" else "${config.limitPercent}%",
                     valueRange = 50f..100f,
                     steps = 49,
-                    enabled = enabled && !config.killCommonProtect,
+                    enabled = enabled && !config.killCommonProtect && config.overrideLimit,
                     insideMargin = PaddingValues(16.dp, 12.dp, 16.dp, 8.dp),
                 )
                 DetailRow(
                     "改写通用保护下发的限制阈值。设为 100 表示不下发限制；" +
                             "设为 50–99 则把保护阈值改写成该百分比。",
+                )
+                SettingItem(
+                    title = "改写限制百分比",
+                    brief = "关闭后恢复官方原生阈值逻辑",
+                    detail = "关闭后通用保护的限制百分比不再改写，官方原生阈值（默认 80%）原样执行；" +
+                            "开启后才按上方滑块值改写，设为 100 则跳过保护调用。",
+                    checked = config.overrideLimit,
+                    enabled = enabled && !config.killCommonProtect,
+                    onCheckedChange = {
+                        onBool(Config.KEY_OVERRIDE_LIMIT, it) { c -> c.copy(overrideLimit = it) }
+                    },
                 )
             }
         }
@@ -1161,7 +1209,7 @@ private fun PageTitle(text: String) {
 
 /** 大页页头：大标题 + 右上角重启作用域按钮。 */
 @Composable
-private fun PageHeader(title: String, onRestartScope: () -> Unit) {
+private fun PageHeader(title: String, onRestartScope: () -> Unit, titleColor: Color? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1171,6 +1219,7 @@ private fun PageHeader(title: String, onRestartScope: () -> Unit) {
         Text(
             text = title,
             fontSize = 32.sp,
+            color = titleColor ?: Color.Unspecified,
             modifier = Modifier.weight(1f),
         )
         TextButton(
@@ -1181,12 +1230,15 @@ private fun PageHeader(title: String, onRestartScope: () -> Unit) {
 }
 
 /**
- * 首次进入的诚信付款页。只做提示，不校验是否真的付过款，
+ * 付款支持页。只做提示，不校验是否真的付过款，
  * 点「我已付款」即视为通过，结果记在本地偏好里，之后不再出现。
+ * 连续两次确认未付款后，开放免费试用入口，以未授权模式进入。
  */
 @Composable
-private fun HonorPayWall(onConfirm: () -> Unit) {
-    var showConfirm by remember { mutableStateOf(false) }
+private fun HonorPayWall(onConfirm: () -> Unit, onTrial: () -> Unit) {
+    // 0 无弹窗，1 第一次询问，2 第二次询问
+    var dialogStep by remember { mutableStateOf(0) }
+    var trialUnlocked by remember { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 32.dp),
@@ -1203,13 +1255,13 @@ private fun HonorPayWall(onConfirm: () -> Unit) {
                     Text(text = "本模块售价 8 元", fontSize = 15.sp)
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "扫码支付 8 元即可进入使用，不设功能限制，也没有试用版。",
+                        text = "扫码支付 8 元即可进入使用，不设功能限制。",
                         fontSize = 13.sp,
                         color = Color.Gray,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "诚信付款，不做校验",
+                        text = "暂不付款时，连续两次确认未付款后可免费试用（未授权模式，每日过期）。",
                         fontSize = 11.sp,
                         color = Color.Gray,
                     )
@@ -1245,13 +1297,49 @@ private fun HonorPayWall(onConfirm: () -> Unit) {
                         fontSize = 13.sp,
                         textDecoration = TextDecoration.Underline,
                     ),
-                    modifier = Modifier.clickable { showConfirm = true },
+                    modifier = Modifier.clickable { dialogStep = 1 },
                 )
             }
-            if (showConfirm) {
+            if (trialUnlocked) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    BasicText(
+                        text = "免费试用，进入",
+                        style = TextStyle(
+                            color = Color.Gray,
+                            fontSize = 13.sp,
+                            textDecoration = TextDecoration.Underline,
+                        ),
+                        modifier = Modifier.clickable { onTrial() },
+                    )
+                }
+            }
+            if (dialogStep == 1) {
                 PayConfirmDialog(
-                    onPaid = onConfirm,
-                    onDismiss = { showConfirm = false },
+                    title = "付款确认",
+                    unpaidFirst = true,
+                    // 第一次无论选哪项都进入第二次询问，最终以第二次选择为准
+                    onPaid = { dialogStep = 2 },
+                    onUnpaid = { dialogStep = 2 },
+                    onDismiss = { dialogStep = 0 },
+                )
+            } else if (dialogStep == 2) {
+                PayConfirmDialog(
+                    title = "再次确认",
+                    unpaidFirst = false,
+                    onPaid = {
+                        dialogStep = 0
+                        onConfirm()
+                    },
+                    onUnpaid = {
+                        dialogStep = 0
+                        trialUnlocked = true
+                    },
+                    onDismiss = { dialogStep = 0 },
                 )
             }
         }
@@ -1259,40 +1347,74 @@ private fun HonorPayWall(onConfirm: () -> Unit) {
 }
 
 /**
- * 付款二次确认框：「我已付款」蓝色高亮，点后进入；
- * 「未付款」灰色弱化，点后关框回到付款页。点框外同样回到付款页。
+ * 付款确认框，共询问两次：第一次「未付款」在左，第二次在右。
+ * 「未付款」蓝色大字，「我已付款」灰色小字，选择后均不做校验。
  */
 @Composable
-private fun PayConfirmDialog(onPaid: () -> Unit, onDismiss: () -> Unit) {
+private fun PayConfirmDialog(
+    title: String,
+    unpaidFirst: Boolean,
+    onPaid: () -> Unit,
+    onUnpaid: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     Dialog(onDismissRequest = onDismiss) {
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(text = "付款确认", fontSize = 16.sp)
-                Spacer(modifier = Modifier.height(16.dp))
-                BasicText(
-                    text = "我已付款",
-                    style = TextStyle(
-                        color = Color(0xFF2E7CF6),
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                    modifier = Modifier.clickable { onPaid() },
-                )
-                Spacer(modifier = Modifier.height(14.dp))
-                BasicText(
-                    text = "未付款",
-                    style = TextStyle(
-                        color = Color.Gray.copy(alpha = 0.6f),
-                        fontSize = 12.sp,
-                    ),
-                    modifier = Modifier.clickable { onDismiss() },
-                )
+                Text(text = title, fontSize = 16.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = "是否已完成付款？", fontSize = 13.sp, color = Color.Gray)
+                Spacer(modifier = Modifier.height(20.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (unpaidFirst) {
+                        UnpaidOption(onClick = onUnpaid)
+                        PaidOption(onClick = onPaid)
+                    } else {
+                        PaidOption(onClick = onPaid)
+                        UnpaidOption(onClick = onUnpaid)
+                    }
+                }
             }
         }
     }
+}
+
+/** 确认框里的「未付款」：蓝色大字。 */
+@Composable
+private fun UnpaidOption(onClick: () -> Unit) {
+    BasicText(
+        text = "未付款",
+        style = TextStyle(
+            color = Color(0xFF2E7CF6),
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold,
+        ),
+        modifier = Modifier
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    )
+}
+
+/** 确认框里的「我已付款」：灰色小字，点后直接进入，不做校验。 */
+@Composable
+private fun PaidOption(onClick: () -> Unit) {
+    BasicText(
+        text = "我已付款",
+        style = TextStyle(
+            color = Color.Gray.copy(alpha = 0.6f),
+            fontSize = 12.sp,
+        ),
+        modifier = Modifier
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    )
 }
 
 /**
