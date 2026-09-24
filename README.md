@@ -3,7 +3,7 @@
 小米安全中心的策略偏保守：过夜充电锁 80%、省电锁 60Hz、一键清理杀后台……这个 LSPosed 模块把 20 多项开关交到你手上，想开就开、想拦就拦，改完即时生效。适用小米 / 红米（Redmi）全系，澎湃 OS（HyperOS）自带安全中心（com.miui.securitycenter）。
 
 - 包名：`io.github.yuhj319.meowpower`，当前版本 6.0
-- 适用：安全服务 13.5.3、Android 16 / 17、LSPosed（libxposed API 102）
+- 适用：安全服务（小米/红米）、Android 16 / 17、LSPosed（libxposed API 102）
 - 作者：[yuhj319](https://github.com/yuhj319)
 
 ---
@@ -45,7 +45,6 @@ root 相关功能（实时监控、持久化落地）首次使用时会弹 su �
 
 ## 注意
 
-- 只适配安全服务 **13.5.3**，其它版本混淆类名可能变化。
 - 快充「强制开启」救不了硬件不支持的机型；旁路充电只做阻止自动开/关，不做强制开启。
 - 持久化落地的 `persist.vendor.*` 在部分设备上会被 SELinux 拦截，界面会逐项报告，装 Magisk 后成功率最高。
 - 本模块仅修改本机行为，不上传任何数据。
@@ -54,25 +53,10 @@ root 相关功能（实时监控、持久化落地）首次使用时会弹 su �
 
 ## 更新日志
 
-### 6.0（相对上一个版本 5.0）
+### 6.0
 
 - 新增免费体验版：直接进入体验全部功能（未授权模式，每日重置）
 - 各页面右上角新增「重启作用域」：改完配置一键重启安全服务即生效
 - 新增自定义健康度显示：改写充电保护页的健康度百分比，留空不修改
 - 新增「改写限制百分比」开关：关闭后恢复官方原生阈值逻辑
 - 首页连接状态改为实时刷新，无需等待
-
----
-
-## 给开发者
-
-环境：JDK 21、Android SDK（含 `platforms/android-37` 与 `build-tools/37.0.0`）。
-
-```bash
-./gradlew assembleDebug     # 快速验证
-./gradlew assembleRelease   # R8 混淆，产物在 app/build/outputs/apk/
-```
-
-- 现代 API（非 legacy XposedBridge）：入口 `META-INF/xposed/java_init.list`，作用域 `scope.list`，配置 `module.prop`（`staticScope=true`）。
-- 配置存 LSPosed RemotePreferences（group = `config`），两侧共享，改完即时生效。
-- 每个 Hook 点都做了目标存在性检查，缺失只打日志不影响其它 Hook（日志 TAG：MeowPower）。
