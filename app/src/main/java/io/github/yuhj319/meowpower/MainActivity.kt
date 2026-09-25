@@ -143,6 +143,7 @@ private data class UiConfig(
     val forceSuperResolution: Boolean = false,
     val forceGameMode: Boolean = false,
     val gameBoostAlways: Boolean = false,
+    val gameNoReset: Boolean = false,
     val noAppOpsRestrict: Boolean = false,
     val noKillBackground: Boolean = false,
     val allowAutostart: Boolean = false,
@@ -182,6 +183,7 @@ private fun readConfig(prefs: SharedPreferences?): UiConfig {
         forceSuperResolution = prefs.getBoolean(Config.KEY_FORCE_SUPER_RESOLUTION, false),
         forceGameMode = prefs.getBoolean(Config.KEY_FORCE_GAME_MODE, false),
         gameBoostAlways = prefs.getBoolean(Config.KEY_GAME_BOOST_ALWAYS, false),
+        gameNoReset = prefs.getBoolean(Config.KEY_GAME_NO_RESET, false),
         noAppOpsRestrict = prefs.getBoolean(Config.KEY_NO_APPOPS_RESTRICT, false),
         noKillBackground = prefs.getBoolean(Config.KEY_NO_KILL_BACKGROUND, false),
         allowAutostart = prefs.getBoolean(Config.KEY_ALLOW_AUTOSTART, false),
@@ -756,6 +758,17 @@ private fun SystemPage(
                     enabled = enabled,
                     onCheckedChange = {
                         onBool(Config.KEY_GAME_BOOST_ALWAYS, it) { c -> c.copy(gameBoostAlways = it) }
+                    },
+                )
+                SettingItem(
+                    title = "游戏退出不复位",
+                    brief = "设置不再被偷偷还原",
+                    detail = "退游戏时系统会把通知、免打扰、加速开关等一堆状态清零复位，" +
+                            "开启后整条复位链不再执行。",
+                    checked = config.gameNoReset,
+                    enabled = enabled,
+                    onCheckedChange = {
+                        onBool(Config.KEY_GAME_NO_RESET, it) { c -> c.copy(gameNoReset = it) }
                     },
                 )
             }

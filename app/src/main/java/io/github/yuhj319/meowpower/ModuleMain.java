@@ -157,6 +157,7 @@ public class ModuleMain extends XposedModule {
         hookFrameInsert(cl);
         hookGameMode(cl);
         hookGameBoost(cl);
+        hookGameNoReset(cl);
         hookAppOpsRestrict(cl);
         hookKillBackground(cl);
         hookAutoStart(cl);
@@ -892,6 +893,30 @@ public class ModuleMain extends XposedModule {
             log(Log.INFO, TAG, "已 Hook 游戏加速开关 j1.T()");
         } catch (Throwable t) {
             log(Log.ERROR, TAG, "Hook 游戏加速开关失败", t);
+        }
+    }
+
+    /**
+     * 游戏退出不复位。{@code j1.W()} 会把 gb_notification / gb_handsfree /
+     * gb_boosting 等一堆开关清零并复位屏幕效果，直接拦掉整条复位链。
+     */
+    private void hookGameNoReset(ClassLoader cl) {
+        Method method = findMethod(cl, CLS_GAME_BOOSTER_SVC, "W");
+        if (method == null) {
+            return;
+        }
+        try {
+            hook(method).setId("cf_game_noreset").intercept(chain -> {
+                ConfigSnapshot c = read();
+                if (c.enabled && c.gameNoReset) {
+                    d("拦截游戏退出复位 j1.W()");
+                    return null;
+                }
+                return chain.proceed();
+            });
+            log(Log.INFO, TAG, "已 Hook 游戏退出复位 j1.W()");
+        } catch (Throwable t) {
+            log(Log.ERROR, TAG, "Hook 游戏退出复位失败", t);
         }
     }
 

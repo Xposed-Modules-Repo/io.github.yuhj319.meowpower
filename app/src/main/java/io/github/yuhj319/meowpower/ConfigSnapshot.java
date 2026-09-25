@@ -39,6 +39,7 @@ public final class ConfigSnapshot {
             "",     // uiHealthText
             false,  // forceGameMode
             false,  // gameBoostAlways
+            false,  // gameNoReset
             false   // debugLog
     );
 
@@ -72,6 +73,7 @@ public final class ConfigSnapshot {
     public final String uiHealthText;
     public final boolean forceGameMode;
     public final boolean gameBoostAlways;
+    public final boolean gameNoReset;
     public final boolean debugLog;
 
     private ConfigSnapshot(boolean enabled, boolean killNightEntry, boolean killNightState,
@@ -84,7 +86,7 @@ public final class ConfigSnapshot {
                            boolean noNetworkRestrict, boolean noBgNetworkRestrict,
                            boolean noTrafficCutoff, boolean noTetherLimit, boolean noInstallVerify,
 
-                           boolean fakeHealth, int healthLevel, String uiHealthText, boolean forceGameMode, boolean gameBoostAlways, boolean debugLog) {
+                           boolean fakeHealth, int healthLevel, String uiHealthText, boolean forceGameMode, boolean gameBoostAlways, boolean gameNoReset, boolean debugLog) {
         this.enabled = enabled;
         this.killNightEntry = killNightEntry;
         this.killNightState = killNightState;
@@ -115,6 +117,7 @@ public final class ConfigSnapshot {
         this.uiHealthText = uiHealthText == null ? "" : uiHealthText;
         this.forceGameMode = forceGameMode;
         this.gameBoostAlways = gameBoostAlways;
+        this.gameNoReset = gameNoReset;
         this.debugLog = debugLog;
     }
 
@@ -154,6 +157,7 @@ public final class ConfigSnapshot {
                     prefs.getString(Config.KEY_UI_HEALTH_TEXT, ""),
                     prefs.getBoolean(Config.KEY_FORCE_GAME_MODE, false),
                     prefs.getBoolean(Config.KEY_GAME_BOOST_ALWAYS, false),
+                    prefs.getBoolean(Config.KEY_GAME_NO_RESET, false),
                     prefs.getBoolean(Config.KEY_DEBUG_LOG, false)
             );
         } catch (Throwable t) {
