@@ -144,6 +144,7 @@ private data class UiConfig(
     val forceGameMode: Boolean = false,
     val gameBoostAlways: Boolean = false,
     val gameNoReset: Boolean = false,
+    val gameBgExempt: Boolean = false,
     val noAppOpsRestrict: Boolean = false,
     val noKillBackground: Boolean = false,
     val allowAutostart: Boolean = false,
@@ -184,6 +185,7 @@ private fun readConfig(prefs: SharedPreferences?): UiConfig {
         forceGameMode = prefs.getBoolean(Config.KEY_FORCE_GAME_MODE, false),
         gameBoostAlways = prefs.getBoolean(Config.KEY_GAME_BOOST_ALWAYS, false),
         gameNoReset = prefs.getBoolean(Config.KEY_GAME_NO_RESET, false),
+        gameBgExempt = prefs.getBoolean(Config.KEY_GAME_BG_EXEMPT, false),
         noAppOpsRestrict = prefs.getBoolean(Config.KEY_NO_APPOPS_RESTRICT, false),
         noKillBackground = prefs.getBoolean(Config.KEY_NO_KILL_BACKGROUND, false),
         allowAutostart = prefs.getBoolean(Config.KEY_ALLOW_AUTOSTART, false),
@@ -769,6 +771,17 @@ private fun SystemPage(
                     enabled = enabled,
                     onCheckedChange = {
                         onBool(Config.KEY_GAME_NO_RESET, it) { c -> c.copy(gameNoReset = it) }
+                    },
+                )
+                SettingItem(
+                    title = "游戏后台豁免",
+                    brief = "切后台不断连",
+                    detail = "游戏切后台时系统会恢复后台联网限制，开启后一律写入免限制，" +
+                            "切出去回消息不断连。",
+                    checked = config.gameBgExempt,
+                    enabled = enabled,
+                    onCheckedChange = {
+                        onBool(Config.KEY_GAME_BG_EXEMPT, it) { c -> c.copy(gameBgExempt = it) }
                     },
                 )
             }

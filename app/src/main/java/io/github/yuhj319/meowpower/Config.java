@@ -72,6 +72,9 @@ public final class Config {
     /** 游戏退出不复位（拦截 j1.W 的一堆开关回写）。 */
     public static final String KEY_GAME_NO_RESET = "game_no_reset";
 
+    /** 游戏后台豁免（p0.v 强制走 BG_CONTROL_NO_RESTRICT）。 */
+    public static final String KEY_GAME_BG_EXEMPT = "game_bg_exempt";
+
     /** 解除 AppOps 私有码限制（10048/10049/10050/10041/119/10054/10055）。 */
     public static final String KEY_NO_APPOPS_RESTRICT = "no_appops_restrict";
 

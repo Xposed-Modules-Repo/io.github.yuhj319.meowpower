@@ -87,6 +87,8 @@ public class ModuleMain extends XposedModule {
     private static final String CLS_GAME_MODE = "com.miui.gamebooster.utils.n1";
     /** 游戏加速服务（gb_boosting 开关与退出复位）。 */
     private static final String CLS_GAME_BOOSTER_SVC = "com.miui.gamebooster.service.j1";
+    /** 游戏后台豁免（powerkeeper BG_CONTROL 写入）。 */
+    private static final String CLS_GAME_BG = "com.miui.gamebooster.utils.p0";
     /** AppOps 私有码写入总闸。 */
     private static final String CLS_APPOPS_COMPAT = "com.miui.permcenter.compact.AppOpsUtilsCompat";
     /** 内存清理（杀后台）。 */
@@ -158,6 +160,7 @@ public class ModuleMain extends XposedModule {
         hookGameMode(cl);
         hookGameBoost(cl);
         hookGameNoReset(cl);
+        hookGameBgExempt(cl);
         hookAppOpsRestrict(cl);
         hookKillBackground(cl);
         hookAutoStart(cl);
@@ -917,6 +920,34 @@ public class ModuleMain extends XposedModule {
             log(Log.INFO, TAG, "已 Hook 游戏退出复位 j1.W()");
         } catch (Throwable t) {
             log(Log.ERROR, TAG, "Hook 游戏退出复位失败", t);
+        }
+    }
+
+    /**
+     * 游戏后台豁免。{@code p0.v(ctx,pkg,true)} 经 powerkeeper provider 写
+     * {@code BG_CONTROL_NO_RESTRICT}，false 会恢复旧值，强制走豁免分支。
+     */
+    private void hookGameBgExempt(ClassLoader cl) {
+        Method method = findMethod(cl, CLS_GAME_BG, "v",
+                Context.class, String.class, boolean.class);
+        if (method == null) {
+            return;
+        }
+        try {
+            hook(method).setId("cf_game_bgexempt").intercept(chain -> {
+                ConfigSnapshot c = read();
+                if (c.enabled && c.gameBgExempt
+                        && !Boolean.TRUE.equals(chain.getArg(2))) {
+                    Object[] args = chain.getArgs().toArray();
+                    args[2] = Boolean.TRUE;
+                    d("游戏后台豁免 -> true：" + chain.getArg(1));
+                    return chain.proceed(args);
+                }
+                return chain.proceed();
+            });
+            log(Log.INFO, TAG, "已 Hook 游戏后台豁免 p0.v()");
+        } catch (Throwable t) {
+            log(Log.ERROR, TAG, "Hook 游戏后台豁免失败", t);
         }
     }
 

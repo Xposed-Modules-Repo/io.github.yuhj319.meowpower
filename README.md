@@ -2,7 +2,7 @@
 
 小米安全中心的策略偏保守：过夜充电锁 80%、省电锁 60Hz、一键清理杀后台……这个 LSPosed 模块把 20 多项开关交到你手上，想开就开、想拦就拦，改完即时生效。适用小米 / 红米（Redmi）全系，澎湃 OS（HyperOS）自带安全中心（com.miui.securitycenter）。
 
-- 包名：`io.github.yuhj319.meowpower`，当前版本 6.4
+- 包名：`io.github.yuhj319.meowpower`，当前版本 6.5
 - 适用：安全服务 13.5.3、Android 16 / 17、LSPosed（libxposed API 102）
 - 作者：[yuhj319](https://github.com/yuhj319)
 
@@ -54,6 +54,10 @@ root 相关功能（实时监控、持久化落地）首次使用时会弹 su �
 ---
 
 ## 更新日志
+
+### 6.5
+
+- 新增游戏后台豁免：切出去回消息，游戏不断连
 
 ### 6.4
 
