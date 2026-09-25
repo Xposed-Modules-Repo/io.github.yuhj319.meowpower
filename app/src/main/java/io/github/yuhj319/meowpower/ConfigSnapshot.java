@@ -24,6 +24,8 @@ public final class ConfigSnapshot {
             false,  // killSuperSave
             false,  // noFpsThrottle
             false,  // noThermalLimit
+            false,  // forceFrameInsert
+            false,  // forceSuperResolution
             false,  // noAppOpsRestrict
             false,  // noKillBackground
             false,  // allowAutostart
@@ -35,6 +37,7 @@ public final class ConfigSnapshot {
             false,  // fakeHealth
             4,      // healthLevel
             "",     // uiHealthText
+            false,  // forceGameMode
             false   // debugLog
     );
 
@@ -53,6 +56,8 @@ public final class ConfigSnapshot {
     public final boolean killSuperSave;
     public final boolean noFpsThrottle;
     public final boolean noThermalLimit;
+    public final boolean forceFrameInsert;
+    public final boolean forceSuperResolution;
     public final boolean noAppOpsRestrict;
     public final boolean noKillBackground;
     public final boolean allowAutostart;
@@ -64,6 +69,7 @@ public final class ConfigSnapshot {
     public final boolean fakeHealth;
     public final int healthLevel;
     public final String uiHealthText;
+    public final boolean forceGameMode;
     public final boolean debugLog;
 
     private ConfigSnapshot(boolean enabled, boolean killNightEntry, boolean killNightState,
@@ -71,12 +77,12 @@ public final class ConfigSnapshot {
                            int limitPercent, int fastChargeMode, int bypassMode,
                            boolean killPogo, boolean killWirelessSilence,
                            boolean killPowerMode, boolean killSuperSave, boolean noFpsThrottle,
-                           boolean noThermalLimit, boolean noAppOpsRestrict,
+                           boolean noThermalLimit, boolean forceFrameInsert, boolean forceSuperResolution, boolean noAppOpsRestrict,
                            boolean noKillBackground, boolean allowAutostart,
                            boolean noNetworkRestrict, boolean noBgNetworkRestrict,
                            boolean noTrafficCutoff, boolean noTetherLimit, boolean noInstallVerify,
 
-                           boolean fakeHealth, int healthLevel, String uiHealthText, boolean debugLog) {
+                           boolean fakeHealth, int healthLevel, String uiHealthText, boolean forceGameMode, boolean debugLog) {
         this.enabled = enabled;
         this.killNightEntry = killNightEntry;
         this.killNightState = killNightState;
@@ -92,6 +98,8 @@ public final class ConfigSnapshot {
         this.killSuperSave = killSuperSave;
         this.noFpsThrottle = noFpsThrottle;
         this.noThermalLimit = noThermalLimit;
+        this.forceFrameInsert = forceFrameInsert;
+        this.forceSuperResolution = forceSuperResolution;
         this.noAppOpsRestrict = noAppOpsRestrict;
         this.noKillBackground = noKillBackground;
         this.allowAutostart = allowAutostart;
@@ -103,6 +111,7 @@ public final class ConfigSnapshot {
         this.fakeHealth = fakeHealth;
         this.healthLevel = clamp(healthLevel, 1, 4);
         this.uiHealthText = uiHealthText == null ? "" : uiHealthText;
+        this.forceGameMode = forceGameMode;
         this.debugLog = debugLog;
     }
 
@@ -127,6 +136,8 @@ public final class ConfigSnapshot {
                     prefs.getBoolean(Config.KEY_KILL_SUPER_SAVE, false),
                     prefs.getBoolean(Config.KEY_NO_FPS_THROTTLE, false),
                     prefs.getBoolean(Config.KEY_NO_THERMAL_LIMIT, false),
+                    prefs.getBoolean(Config.KEY_FORCE_FRAME_INSERT, false),
+                    prefs.getBoolean(Config.KEY_FORCE_SUPER_RESOLUTION, false),
                     prefs.getBoolean(Config.KEY_NO_APPOPS_RESTRICT, false),
                     prefs.getBoolean(Config.KEY_NO_KILL_BACKGROUND, false),
                     prefs.getBoolean(Config.KEY_ALLOW_AUTOSTART, false),
@@ -138,6 +149,7 @@ public final class ConfigSnapshot {
                     prefs.getBoolean(Config.KEY_FAKE_HEALTH, false),
                     prefs.getInt(Config.KEY_HEALTH_LEVEL, 4),
                     prefs.getString(Config.KEY_UI_HEALTH_TEXT, ""),
+                    prefs.getBoolean(Config.KEY_FORCE_GAME_MODE, false),
                     prefs.getBoolean(Config.KEY_DEBUG_LOG, false)
             );
         } catch (Throwable t) {

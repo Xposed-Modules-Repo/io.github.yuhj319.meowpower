@@ -79,6 +79,12 @@ public class ModuleMain extends XposedModule {
     private static final String CLS_POWER_TASK = "jh.x";
     /** 温控配置工具。 */
     private static final String CLS_THERMAL = "jh.g0";
+    /** 游戏画质增强（插帧/超分）判定与下发。 */
+    private static final String CLS_VISION_ENHANCE = "com.miui.gamebooster.utils.GameBoxVisionEnhanceUtils";
+    /** joyose GPU 调谐 Binder 代理（跑在安全中心进程内），按包能力查询的实际返回点。 */
+    private static final String CLS_GPU_TUNER_PROXY = "com.xiaomi.joyose.securitycenter.IGPUTunerInterface$Stub$a";
+    /** 游戏性能档（GameManager.setGameMode 封装）。 */
+    private static final String CLS_GAME_MODE = "com.miui.gamebooster.utils.n1";
     /** AppOps 私有码写入总闸。 */
     private static final String CLS_APPOPS_COMPAT = "com.miui.permcenter.compact.AppOpsUtilsCompat";
     /** 内存清理（杀后台）。 */
@@ -146,6 +152,8 @@ public class ModuleMain extends XposedModule {
         hookSuperSave(cl);
         hookFpsThrottle(cl);
         hookThermalLimit(cl);
+        hookFrameInsert(cl);
+        hookGameMode(cl);
         hookAppOpsRestrict(cl);
         hookKillBackground(cl);
         hookAutoStart(cl);
@@ -566,6 +574,296 @@ public class ModuleMain extends XposedModule {
             log(Log.INFO, TAG, "已 Hook 温控配置");
         } catch (Throwable t) {
             log(Log.ERROR, TAG, "Hook 温控配置失败", t);
+        }
+    }
+
+    /**
+     * 强制开启游戏插帧 / 超分（类型 1=插帧、2=超分、4=双开）。
+     *
+     * <p>判定链（安全服务 13.5.3，{@code GameBoxVisionEnhanceUtils}）：
+     * {@code K()} 设备总闸、{@code Q()} 按包支持、{@code E()} 开关态为公共闸；
+     * 插帧走 {@code W()/R()/O()}，超分走 {@code Z()/S()/N()}，
+     * 放行后侧边栏 {@code b1.y()} 才会把对应复选框置为 {@code VISIBLE}。
+     * 下发链：{@code w0/q0} 写类型、{@code p0} 写开关，最终调 joyose
+     * {@code IGPUTuner.setFrameInsertingOrSuperResolution(pkg,type)} /
+     * {@code setPictureEnhancement(pkg,true)}。{@code F(String)} 置 true
+     * 让初始化默认开，{@code Stub$a} 代理层兜底按包查询（不支持的包返回
+     * 帧率 120 / 合并类型数组 / 目标类型），避免 {@code J()} 因
+     * {@code f17937d=false} 走 {@code i0()} 释放服务。</p>
+     */
+    private void hookFrameInsert(ClassLoader cl) {
+        hookVisionGate(cl, new String[]{"K", "Q", "E"}, 0);
+        hookVisionGate(cl, new String[]{"W", "R", "O"}, 1);
+        hookVisionGate(cl, new String[]{"Z", "S", "N"}, 2);
+
+        Method f = findMethod(cl, CLS_VISION_ENHANCE, "F", String.class);
+        if (f != null) {
+            try {
+                hook(f).setId("cf_frameinsert_F").intercept(chain -> {
+                    ConfigSnapshot c = read();
+                    if (visionOn(c)) {
+                        d("强制画质默认开：" + chain.getArg(0));
+                        return Boolean.TRUE;
+                    }
+                    return chain.proceed();
+                });
+                log(Log.INFO, TAG, "已 Hook 画质默认开关 F()");
+            } catch (Throwable t) {
+                log(Log.ERROR, TAG, "Hook 插帧默认开关 F() 失败", t);
+            }
+        }
+
+        Method q0 = findMethod(cl, CLS_VISION_ENHANCE, "q0", int.class);
+        if (q0 != null) {
+            try {
+                hook(q0).setId("cf_frameinsert_q0").intercept(chain -> {
+                    ConfigSnapshot c = read();
+                    int target = visionTargetType(c);
+                    if (target != 0) {
+                        d("强制画质类型 -> " + target);
+                        return chain.proceed(new Object[]{target});
+                    }
+                    return chain.proceed();
+                });
+                log(Log.INFO, TAG, "已 Hook 画质类型 q0()");
+            } catch (Throwable t) {
+                log(Log.ERROR, TAG, "Hook 插帧类型 q0() 失败", t);
+            }
+        }
+
+        Method p0 = findMethod(cl, CLS_VISION_ENHANCE, "p0", boolean.class);
+        if (p0 != null) {
+            try {
+                hook(p0).setId("cf_frameinsert_p0").intercept(chain -> {
+                    ConfigSnapshot c = read();
+                    if (visionOn(c) && !Boolean.TRUE.equals(chain.getArg(0))) {
+                        d("强制画质开关 -> true");
+                        return chain.proceed(new Object[]{Boolean.TRUE});
+                    }
+                    return chain.proceed();
+                });
+                log(Log.INFO, TAG, "已 Hook 画质开关 p0()");
+            } catch (Throwable t) {
+                log(Log.ERROR, TAG, "Hook 画质开关 p0() 失败", t);
+            }
+        }
+
+        Method w0 = findMethod(cl, CLS_VISION_ENHANCE, "w0",
+                boolean.class, boolean.class, int.class);
+        if (w0 != null) {
+            try {
+                hook(w0).setId("cf_frameinsert_w0").intercept(chain -> {
+                    ConfigSnapshot c = read();
+                    int target = visionTargetType(c);
+                    if (target != 0) {
+                        Object[] args = chain.getArgs().toArray();
+                        if (c.forceFrameInsert) {
+                            args[0] = Boolean.TRUE;
+                        }
+                        if (c.forceSuperResolution) {
+                            args[1] = Boolean.TRUE;
+                        }
+                        args[2] = target;
+                        d("强制画质下发 w0(" + args[0] + "," + args[1] + "," + target + ")");
+                        return chain.proceed(args);
+                    }
+                    return chain.proceed();
+                });
+                log(Log.INFO, TAG, "已 Hook 画质下发 w0()");
+            } catch (Throwable t) {
+                log(Log.ERROR, TAG, "Hook 插帧下发 w0() 失败", t);
+            }
+        }
+
+        Method pkgSupport = findMethod(cl, CLS_GPU_TUNER_PROXY,
+                "isSupportGameEnhancePkg", String.class);
+        if (pkgSupport != null) {
+            try {
+                hook(pkgSupport).setId("cf_frameinsert_pkg").intercept(chain -> {
+                    ConfigSnapshot c = read();
+                    Object result = chain.proceed();
+                    if (visionOn(c) && result instanceof Integer && (Integer) result == 0) {
+                        d("joyose 按包帧率 0 -> 120：" + chain.getArg(0));
+                        return 120;
+                    }
+                    return result;
+                });
+                log(Log.INFO, TAG, "已 Hook joyose 按包查询");
+            } catch (Throwable t) {
+                log(Log.ERROR, TAG, "Hook joyose 按包查询失败", t);
+            }
+        }
+
+        Method supportType = findMethod(cl, CLS_GPU_TUNER_PROXY,
+                "getPictureEnhanceSupportType", String.class);
+        if (supportType != null) {
+            try {
+                hook(supportType).setId("cf_frameinsert_types").intercept(chain -> {
+                    ConfigSnapshot c = read();
+                    Object result = chain.proceed();
+                    int target = visionTargetType(c);
+                    if (target != 0) {
+                        int[] merged = mergeVisionTypes(
+                                result instanceof int[] ? (int[]) result : null, c);
+                        d("joyose 支持类型 -> " + java.util.Arrays.toString(merged)
+                                + "：" + chain.getArg(0));
+                        return merged;
+                    }
+                    return result;
+                });
+                log(Log.INFO, TAG, "已 Hook joyose 支持类型查询");
+            } catch (Throwable t) {
+                log(Log.ERROR, TAG, "Hook joyose 支持类型查询失败", t);
+            }
+        }
+
+        Method currentType = findMethod(cl, CLS_GPU_TUNER_PROXY,
+                "getFrameInsertingOrSuperResolution", String.class);
+        if (currentType != null) {
+            try {
+                hook(currentType).setId("cf_frameinsert_curtype").intercept(chain -> {
+                    ConfigSnapshot c = read();
+                    int target = visionTargetType(c);
+                    if (target != 0) {
+                        return target;
+                    }
+                    return chain.proceed();
+                });
+                log(Log.INFO, TAG, "已 Hook joyose 当前类型查询");
+            } catch (Throwable t) {
+                log(Log.ERROR, TAG, "Hook joyose 当前类型查询失败", t);
+            }
+        }
+
+        Method dualSupport = findMethod(cl, CLS_GPU_TUNER_PROXY,
+                "isSupportSuperResolutionWithFrameInsert", String.class);
+        if (dualSupport != null) {
+            try {
+                hook(dualSupport).setId("cf_frameinsert_dual").intercept(chain -> {
+                    ConfigSnapshot c = read();
+                    if (visionOn(c)) {
+                        return Boolean.TRUE;
+                    }
+                    return chain.proceed();
+                });
+                log(Log.INFO, TAG, "已 Hook joyose 双开支持查询");
+            } catch (Throwable t) {
+                log(Log.ERROR, TAG, "Hook joyose 双开支持查询失败", t);
+            }
+        }
+
+        Method topGame = findMethod(cl, CLS_GPU_TUNER_PROXY,
+                "enableSuperResolutionWithFrameInsert", String.class);
+        if (topGame != null) {
+            try {
+                hook(topGame).setId("cf_frameinsert_topgame").intercept(chain -> {
+                    ConfigSnapshot c = read();
+                    if (visionOn(c)) {
+                        return Boolean.TRUE;
+                    }
+                    return chain.proceed();
+                });
+                log(Log.INFO, TAG, "已 Hook joyose 双开使能查询");
+            } catch (Throwable t) {
+                log(Log.ERROR, TAG, "Hook joyose 双开使能查询失败", t);
+            }
+        }
+    }
+
+    /** 画质判定门：scope 0=任一开关，1=仅插帧，2=仅超分。 */
+    private void hookVisionGate(ClassLoader cl, String[] names, int scope) {
+        for (String name : names) {
+            Method gate = findMethod(cl, CLS_VISION_ENHANCE, name);
+            if (gate == null) {
+                continue;
+            }
+            final String label = name;
+            try {
+                hook(gate).setId("cf_vision_" + name).intercept(chain -> {
+                    ConfigSnapshot c = read();
+                    boolean hit = scope == 0 ? visionOn(c)
+                            : scope == 1 ? (c.enabled && c.forceFrameInsert)
+                            : (c.enabled && c.forceSuperResolution);
+                    if (hit) {
+                        d("强制放行画质判定 " + label + "()");
+                        return Boolean.TRUE;
+                    }
+                    return chain.proceed();
+                });
+                log(Log.INFO, TAG, "已 Hook 画质判定 " + name + "()");
+            } catch (Throwable t) {
+                log(Log.ERROR, TAG, "Hook 画质判定 " + name + "() 失败", t);
+            }
+        }
+    }
+
+    /** 任一画质开关开启。 */
+    private static boolean visionOn(ConfigSnapshot c) {
+        return c.enabled && (c.forceFrameInsert || c.forceSuperResolution);
+    }
+
+    /** 目标类型：1=插帧、2=超分、4=双开，0=不干预。 */
+    private static int visionTargetType(ConfigSnapshot c) {
+        if (!c.enabled) {
+            return 0;
+        }
+        if (c.forceFrameInsert && c.forceSuperResolution) {
+            return 4;
+        }
+        if (c.forceFrameInsert) {
+            return 1;
+        }
+        if (c.forceSuperResolution) {
+            return 2;
+        }
+        return 0;
+    }
+
+    /** 合并 joyose 原返回与强制类型位，保证强制位一定在。 */
+    private static int[] mergeVisionTypes(int[] origin, ConfigSnapshot c) {
+        java.util.LinkedHashSet<Integer> set = new java.util.LinkedHashSet<>();
+        if (origin != null) {
+            for (int type : origin) {
+                set.add(type);
+            }
+        }
+        if (c.forceFrameInsert) {
+            set.add(1);
+        }
+        if (c.forceSuperResolution) {
+            set.add(2);
+        }
+        int[] out = new int[set.size()];
+        int i = 0;
+        for (int type : set) {
+            out[i++] = type;
+        }
+        return out;
+    }
+
+    /**
+     * 强制游戏性能档。{@code n1.d(String,int)} 是
+     * {@code GameManager.setGameMode} 的唯一封装（1=标准、2=性能、3=省电），
+     * 强制写 2（GAME_MODE_PERFORMANCE），不再看名单脸色。
+     */
+    private void hookGameMode(ClassLoader cl) {
+        Method method = findMethod(cl, CLS_GAME_MODE, "d", String.class, int.class);
+        if (method == null) {
+            return;
+        }
+        try {
+            hook(method).setId("cf_game_mode").intercept(chain -> {
+                ConfigSnapshot c = read();
+                if (c.enabled && c.forceGameMode
+                        && !Integer.valueOf(2).equals(chain.getArg(1))) {
+                    d("强制游戏性能档 -> 2：" + chain.getArg(0));
+                    return chain.proceed(new Object[]{chain.getArg(0), 2});
+                }
+                return chain.proceed();
+            });
+            log(Log.INFO, TAG, "已 Hook 游戏性能档 n1.d()");
+        } catch (Throwable t) {
+            log(Log.ERROR, TAG, "Hook 游戏性能档失败", t);
         }
     }
 

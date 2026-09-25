@@ -57,6 +57,15 @@ public final class Config {
     /** 禁止温控降频。 */
     public static final String KEY_NO_THERMAL_LIMIT = "no_thermal_limit";
 
+    /** 强制开启游戏插帧（智能插帧，f17936c=1）。 */
+    public static final String KEY_FORCE_FRAME_INSERT = "force_frame_insert";
+
+    /** 强制开启游戏超分（超级分辨率，f17936c=2；与插帧同开时走双开 4）。 */
+    public static final String KEY_FORCE_SUPER_RESOLUTION = "force_super_resolution";
+
+    /** 强制游戏性能档（GameManager.setGameMode → GAME_MODE_PERFORMANCE=2）。 */
+    public static final String KEY_FORCE_GAME_MODE = "force_game_mode";
+
     /** 解除 AppOps 私有码限制（10048/10049/10050/10041/119/10054/10055）。 */
     public static final String KEY_NO_APPOPS_RESTRICT = "no_appops_restrict";
 

@@ -29,5 +29,8 @@ keystore.properties
 # Old version backups, not part of the repo
 .backup/
 
+# Versioned release APKs (gradle cleans app/build outputs; keep them here)
+release/
+
 # Third-party plugin sources, not part of the repo
 lspilot/

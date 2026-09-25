@@ -139,6 +139,9 @@ private data class UiConfig(
     val killSuperSave: Boolean = false,
     val noFpsThrottle: Boolean = false,
     val noThermalLimit: Boolean = false,
+    val forceFrameInsert: Boolean = false,
+    val forceSuperResolution: Boolean = false,
+    val forceGameMode: Boolean = false,
     val noAppOpsRestrict: Boolean = false,
     val noKillBackground: Boolean = false,
     val allowAutostart: Boolean = false,
@@ -174,6 +177,9 @@ private fun readConfig(prefs: SharedPreferences?): UiConfig {
         killSuperSave = prefs.getBoolean(Config.KEY_KILL_SUPER_SAVE, false),
         noFpsThrottle = prefs.getBoolean(Config.KEY_NO_FPS_THROTTLE, false),
         noThermalLimit = prefs.getBoolean(Config.KEY_NO_THERMAL_LIMIT, false),
+        forceFrameInsert = prefs.getBoolean(Config.KEY_FORCE_FRAME_INSERT, false),
+        forceSuperResolution = prefs.getBoolean(Config.KEY_FORCE_SUPER_RESOLUTION, false),
+        forceGameMode = prefs.getBoolean(Config.KEY_FORCE_GAME_MODE, false),
         noAppOpsRestrict = prefs.getBoolean(Config.KEY_NO_APPOPS_RESTRICT, false),
         noKillBackground = prefs.getBoolean(Config.KEY_NO_KILL_BACKGROUND, false),
         allowAutostart = prefs.getBoolean(Config.KEY_ALLOW_AUTOSTART, false),
@@ -725,6 +731,22 @@ private fun SystemPage(
     val enabled = config.enabled
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
         item { PageHeader("系统与性能", onRestartScope) }
+        item { SmallTitle(text = "游戏") }
+        item {
+            Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
+                SettingItem(
+                    title = "强制游戏性能档",
+                    brief = "锁 GAME_MODE_PERFORMANCE",
+                    detail = "游戏性能档经 GameManager.setGameMode 下发（1=标准、2=性能、3=省电），" +
+                            "开启后一律写 2，不再看名单脸色。",
+                    checked = config.forceGameMode,
+                    enabled = enabled,
+                    onCheckedChange = {
+                        onBool(Config.KEY_FORCE_GAME_MODE, it) { c -> c.copy(forceGameMode = it) }
+                    },
+                )
+            }
+        }
         item { SmallTitle(text = "性能与电源") }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
@@ -771,6 +793,29 @@ private fun SystemPage(
                     enabled = enabled,
                     onCheckedChange = {
                         onBool(Config.KEY_NO_THERMAL_LIMIT, it) { c -> c.copy(noThermalLimit = it) }
+                    },
+                )
+                SettingItem(
+                    title = "强制开启游戏插帧",
+                    brief = "非支持机型/游戏也显示并开启插帧",
+                    detail = "放行设备总闸与按包支持判定，把插帧类型写死为智能插帧，" +
+                            "初始化默认开。只改本机显示与下发，不保证硬件真有插帧效果，" +
+                            "无效果时关闭即可。",
+                    checked = config.forceFrameInsert,
+                    enabled = enabled,
+                    onCheckedChange = {
+                        onBool(Config.KEY_FORCE_FRAME_INSERT, it) { c -> c.copy(forceFrameInsert = it) }
+                    },
+                )
+                SettingItem(
+                    title = "强制开启游戏超分",
+                    brief = "非支持机型/游戏也显示并开启超分",
+                    detail = "放行超分侧判定，把超分类型写入 joyose；与插帧同时开启时走双开(4)。" +
+                            "只改本机显示与下发，不保证硬件真有效果，无效果时关闭即可。",
+                    checked = config.forceSuperResolution,
+                    enabled = enabled,
+                    onCheckedChange = {
+                        onBool(Config.KEY_FORCE_SUPER_RESOLUTION, it) { c -> c.copy(forceSuperResolution = it) }
                     },
                 )
             }
