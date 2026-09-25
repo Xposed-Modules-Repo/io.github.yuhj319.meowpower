@@ -38,6 +38,7 @@ public final class ConfigSnapshot {
             4,      // healthLevel
             "",     // uiHealthText
             false,  // forceGameMode
+            false,  // gameBoostAlways
             false   // debugLog
     );
 
@@ -70,6 +71,7 @@ public final class ConfigSnapshot {
     public final int healthLevel;
     public final String uiHealthText;
     public final boolean forceGameMode;
+    public final boolean gameBoostAlways;
     public final boolean debugLog;
 
     private ConfigSnapshot(boolean enabled, boolean killNightEntry, boolean killNightState,
@@ -82,7 +84,7 @@ public final class ConfigSnapshot {
                            boolean noNetworkRestrict, boolean noBgNetworkRestrict,
                            boolean noTrafficCutoff, boolean noTetherLimit, boolean noInstallVerify,
 
-                           boolean fakeHealth, int healthLevel, String uiHealthText, boolean forceGameMode, boolean debugLog) {
+                           boolean fakeHealth, int healthLevel, String uiHealthText, boolean forceGameMode, boolean gameBoostAlways, boolean debugLog) {
         this.enabled = enabled;
         this.killNightEntry = killNightEntry;
         this.killNightState = killNightState;
@@ -112,6 +114,7 @@ public final class ConfigSnapshot {
         this.healthLevel = clamp(healthLevel, 1, 4);
         this.uiHealthText = uiHealthText == null ? "" : uiHealthText;
         this.forceGameMode = forceGameMode;
+        this.gameBoostAlways = gameBoostAlways;
         this.debugLog = debugLog;
     }
 
@@ -150,6 +153,7 @@ public final class ConfigSnapshot {
                     prefs.getInt(Config.KEY_HEALTH_LEVEL, 4),
                     prefs.getString(Config.KEY_UI_HEALTH_TEXT, ""),
                     prefs.getBoolean(Config.KEY_FORCE_GAME_MODE, false),
+                    prefs.getBoolean(Config.KEY_GAME_BOOST_ALWAYS, false),
                     prefs.getBoolean(Config.KEY_DEBUG_LOG, false)
             );
         } catch (Throwable t) {

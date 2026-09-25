@@ -85,6 +85,8 @@ public class ModuleMain extends XposedModule {
     private static final String CLS_GPU_TUNER_PROXY = "com.xiaomi.joyose.securitycenter.IGPUTunerInterface$Stub$a";
     /** 游戏性能档（GameManager.setGameMode 封装）。 */
     private static final String CLS_GAME_MODE = "com.miui.gamebooster.utils.n1";
+    /** 游戏加速服务（gb_boosting 开关与退出复位）。 */
+    private static final String CLS_GAME_BOOSTER_SVC = "com.miui.gamebooster.service.j1";
     /** AppOps 私有码写入总闸。 */
     private static final String CLS_APPOPS_COMPAT = "com.miui.permcenter.compact.AppOpsUtilsCompat";
     /** 内存清理（杀后台）。 */
@@ -154,6 +156,7 @@ public class ModuleMain extends XposedModule {
         hookThermalLimit(cl);
         hookFrameInsert(cl);
         hookGameMode(cl);
+        hookGameBoost(cl);
         hookAppOpsRestrict(cl);
         hookKillBackground(cl);
         hookAutoStart(cl);
@@ -864,6 +867,31 @@ public class ModuleMain extends XposedModule {
             log(Log.INFO, TAG, "已 Hook 游戏性能档 n1.d()");
         } catch (Throwable t) {
             log(Log.ERROR, TAG, "Hook 游戏性能档失败", t);
+        }
+    }
+
+    /**
+     * 游戏加速全局常开。{@code j1.T(int)} 写 Secure {@code gb_boosting}，
+     * 1=开（并记包名）、0=关（清空包名），关的调用一律改写成开。
+     */
+    private void hookGameBoost(ClassLoader cl) {
+        Method method = findMethod(cl, CLS_GAME_BOOSTER_SVC, "T", int.class);
+        if (method == null) {
+            return;
+        }
+        try {
+            hook(method).setId("cf_game_boost").intercept(chain -> {
+                ConfigSnapshot c = read();
+                if (c.enabled && c.gameBoostAlways
+                        && !Integer.valueOf(1).equals(chain.getArg(0))) {
+                    d("游戏加速常开 T -> 1");
+                    return chain.proceed(new Object[]{1});
+                }
+                return chain.proceed();
+            });
+            log(Log.INFO, TAG, "已 Hook 游戏加速开关 j1.T()");
+        } catch (Throwable t) {
+            log(Log.ERROR, TAG, "Hook 游戏加速开关失败", t);
         }
     }
 

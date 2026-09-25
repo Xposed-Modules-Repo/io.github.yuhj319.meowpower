@@ -66,6 +66,9 @@ public final class Config {
     /** 强制游戏性能档（GameManager.setGameMode → GAME_MODE_PERFORMANCE=2）。 */
     public static final String KEY_FORCE_GAME_MODE = "force_game_mode";
 
+    /** 游戏加速全局常开（gb_boosting 写 1 不写 0）。 */
+    public static final String KEY_GAME_BOOST_ALWAYS = "game_boost_always";
+
     /** 解除 AppOps 私有码限制（10048/10049/10050/10041/119/10054/10055）。 */
     public static final String KEY_NO_APPOPS_RESTRICT = "no_appops_restrict";
 

@@ -142,6 +142,7 @@ private data class UiConfig(
     val forceFrameInsert: Boolean = false,
     val forceSuperResolution: Boolean = false,
     val forceGameMode: Boolean = false,
+    val gameBoostAlways: Boolean = false,
     val noAppOpsRestrict: Boolean = false,
     val noKillBackground: Boolean = false,
     val allowAutostart: Boolean = false,
@@ -180,6 +181,7 @@ private fun readConfig(prefs: SharedPreferences?): UiConfig {
         forceFrameInsert = prefs.getBoolean(Config.KEY_FORCE_FRAME_INSERT, false),
         forceSuperResolution = prefs.getBoolean(Config.KEY_FORCE_SUPER_RESOLUTION, false),
         forceGameMode = prefs.getBoolean(Config.KEY_FORCE_GAME_MODE, false),
+        gameBoostAlways = prefs.getBoolean(Config.KEY_GAME_BOOST_ALWAYS, false),
         noAppOpsRestrict = prefs.getBoolean(Config.KEY_NO_APPOPS_RESTRICT, false),
         noKillBackground = prefs.getBoolean(Config.KEY_NO_KILL_BACKGROUND, false),
         allowAutostart = prefs.getBoolean(Config.KEY_ALLOW_AUTOSTART, false),
@@ -743,6 +745,17 @@ private fun SystemPage(
                     enabled = enabled,
                     onCheckedChange = {
                         onBool(Config.KEY_FORCE_GAME_MODE, it) { c -> c.copy(forceGameMode = it) }
+                    },
+                )
+                SettingItem(
+                    title = "游戏加速全局常开",
+                    brief = "进游戏自动满血",
+                    detail = "游戏加速状态记在 Secure gb_boosting（1=开、0=关），" +
+                            "开启后关的调用一律改写成开。",
+                    checked = config.gameBoostAlways,
+                    enabled = enabled,
+                    onCheckedChange = {
+                        onBool(Config.KEY_GAME_BOOST_ALWAYS, it) { c -> c.copy(gameBoostAlways = it) }
                     },
                 )
             }
