@@ -67,6 +67,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -99,13 +100,11 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.darkColorScheme
 import top.yukonga.miuix.kmp.theme.lightColorScheme
 
-/**
- * 配置界面。Miuix（Compose）+ 底部导航 + 左右滑动切换。
- *
- * 主页只放状态、监控与总开关；功能开关按分类收进二级页。
- * 每个开关常驻一行摘要，点「详情」展开完整说明。
- */
 class MainActivity : ComponentActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(LocaleHelper.wrap(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -120,7 +119,7 @@ class MainActivity : ComponentActivity() {
 }
 
 // ---------------------------------------------------------------------------
-// 配置模型
+// Config model
 // ---------------------------------------------------------------------------
 
 private data class UiConfig(
@@ -189,20 +188,15 @@ private fun readConfig(prefs: SharedPreferences?): UiConfig {
     )
 }
 
-/** Hook 目标包，重启作用域即重启它。 */
 private const val TARGET_PACKAGE = "com.miui.securitycenter"
 
 private const val REFRESH_INTERVAL_MS = 2000L
 
-/** 界面自身的偏好，与 Hook 侧读取的 RemotePreferences 无关。 */
 private const val UI_PREFS = "meow_ui"
 private const val KEY_HONOR_DONE = "honor_done"
-/** 付款时的安装戳（PackageInfo.lastUpdateTime），覆盖安装 / 升级会变，变了就重置激活。 */
 private const val KEY_HONOR_STAMP = "honor_install_stamp"
 private const val KEY_TRIAL_DONE = "trial_done"
-/** 试用时的安装戳，语义同付款戳，覆盖安装 / 升级后试用同样重置。 */
 private const val KEY_TRIAL_STAMP = "trial_install_stamp"
-/** 试用授权日期（LocalDate.toEpochDay），隔天即过期，需重新确认。 */
 private const val KEY_TRIAL_DATE = "trial_date"
 
 private fun currentInstallStamp(context: Context): Long = try {
@@ -212,7 +206,6 @@ private fun currentInstallStamp(context: Context): Long = try {
     -1L
 }
 
-/** 激活有效 = 标记为真且安装戳未变；覆盖安装或升级后戳变，自动回到付款页。 */
 private fun isHonorValid(context: Context, uiPrefs: SharedPreferences): Boolean {
     if (!uiPrefs.getBoolean(KEY_HONOR_DONE, false)) return false
     val stamp = uiPrefs.getLong(KEY_HONOR_STAMP, -1L)
@@ -220,7 +213,6 @@ private fun isHonorValid(context: Context, uiPrefs: SharedPreferences): Boolean 
     return current != -1L && stamp == current
 }
 
-/** 试用有效 = 标记为真、安装戳未变且授权日期是今天；隔天自动过期回到付款页。 */
 private fun isTrialValid(context: Context, uiPrefs: SharedPreferences): Boolean {
     if (!uiPrefs.getBoolean(KEY_TRIAL_DONE, false)) return false
     val stamp = uiPrefs.getLong(KEY_TRIAL_STAMP, -1L)
@@ -229,27 +221,24 @@ private fun isTrialValid(context: Context, uiPrefs: SharedPreferences): Boolean 
     return uiPrefs.getLong(KEY_TRIAL_DATE, -1L) == LocalDate.now().toEpochDay()
 }
 
-private val FAST_CHARGE_OPTIONS = listOf("不干预", "强制开启", "强制关闭")
-private val BYPASS_OPTIONS = listOf("不干预", "阻止自动开启", "阻止自动停止")
-
 private val OK_GREEN = Color(0xFF34A853)
 private val WARN_RED = Color(0xFFE53935)
 private val HERO_OK_BG = Color(0xFFE3F3E6)
 private val HERO_WARN_BG = Color(0xFFFBE4E2)
 
 // ---------------------------------------------------------------------------
-// 根界面
+// Root composable
 // ---------------------------------------------------------------------------
 
-private data class Tab(val label: String, val icon: ImageVector)
+private data class Tab(val labelResId: Int, val icon: ImageVector)
 
 @Composable
 private fun rememberTabs(): List<Tab> = remember {
     listOf(
-        Tab("主页", MiuixIcons.Home),
-        Tab("充电", MiuixIcons.Refresh),
-        Tab("系统", MiuixIcons.GridView),
-        Tab("设置", MiuixIcons.Tune),
+        Tab(R.string.tab_home, MiuixIcons.Home),
+        Tab(R.string.tab_charge, MiuixIcons.Refresh),
+        Tab(R.string.tab_system, MiuixIcons.GridView),
+        Tab(R.string.tab_settings, MiuixIcons.Tune),
     )
 }
 
@@ -257,7 +246,6 @@ private fun rememberTabs(): List<Tab> = remember {
 private fun MeowPowerApp() {
     val context = LocalContext.current
 
-    // 首次进入先过一遍付款支持页。覆盖安装 / 升级会改安装戳，激活与试用自动重置。
     val uiPrefs = remember(context) {
         context.getSharedPreferences(UI_PREFS, Context.MODE_PRIVATE)
     }
@@ -275,7 +263,6 @@ private fun MeowPowerApp() {
     var prefs by remember { mutableStateOf(loadRemotePrefs(service)) }
     var config by remember { mutableStateOf(readConfig(prefs)) }
 
-    // 框架 binder 一送达就刷新状态，不用等 2 秒轮询；binder 线程回调，用 scope 切回主线程
     DisposableEffect(Unit) {
         val listener = App.Listener { latest ->
             scope.launch {
@@ -340,7 +327,9 @@ private fun MeowPowerApp() {
         config = apply(config)
     }
 
-    /** root 重启安全服务（作用域），使新配置与 Hook 生效。 */
+    val restartOkMsg = stringResource(R.string.restart_scope_ok)
+    val restartFailMsg = stringResource(R.string.restart_scope_fail)
+
     fun restartScope() {
         scope.launch {
             val ok = withContext(Dispatchers.IO) {
@@ -348,7 +337,7 @@ private fun MeowPowerApp() {
             }
             Toast.makeText(
                 context,
-                if (ok) "已重启安全服务" else "重启失败：root 不可用",
+                if (ok) restartOkMsg else restartFailMsg,
                 Toast.LENGTH_SHORT,
             ).show()
         }
@@ -380,7 +369,7 @@ private fun MeowPowerApp() {
                         selected = pagerState.currentPage == index,
                         onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
                         icon = tab.icon,
-                        label = tab.label,
+                        label = stringResource(tab.labelResId),
                     )
                 }
             }
@@ -453,7 +442,7 @@ private fun MeowPowerApp() {
 }
 
 // ---------------------------------------------------------------------------
-// 主页
+// Home page
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -471,7 +460,7 @@ private fun HomePage(
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             PageHeader(
-                title = if (isTrial) "喵力全开（未授权）" else "喵力全开",
+                title = if (isTrial) stringResource(R.string.app_name_unlicensed) else stringResource(R.string.app_name),
                 titleColor = if (isTrial) WARN_RED else null,
                 onRestartScope = onRestartScope,
             )
@@ -480,20 +469,19 @@ private fun HomePage(
         item { StatusInfoCard(service, rootAvailable) }
 
         item {
-            SmallTitle(text = "实时监控（root）")
+            SmallTitle(text = stringResource(R.string.section_monitor))
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 MonitorBlock(state = chargeState, updatedAt = updatedAt)
             }
         }
 
         item {
-            SmallTitle(text = "总开关")
+            SmallTitle(text = stringResource(R.string.section_master))
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 SettingItem(
-                    title = "启用模块",
-                    brief = "关闭后所有 Hook 干预立即停止",
-                    detail = "关闭后本模块不再拦截任何行为，目标应用恢复原生逻辑。" +
-                            "已经通过「持久化落地」写进系统属性与 Settings 的改动不受影响，需要另行还原。",
+                    title = stringResource(R.string.master_title),
+                    brief = stringResource(R.string.master_brief),
+                    detail = stringResource(R.string.master_detail),
                     checked = enabled,
                     onCheckedChange = onEnabledChange,
                 )
@@ -503,7 +491,7 @@ private fun HomePage(
 }
 
 // ---------------------------------------------------------------------------
-// 二级页：充电
+// Charge page
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -515,16 +503,26 @@ private fun ChargePage(
     onRestartScope: () -> Unit,
 ) {
     val enabled = config.enabled
+    val fastChargeOptions = listOf(
+        stringResource(R.string.fast_off),
+        stringResource(R.string.fast_on),
+        stringResource(R.string.fast_disable),
+    )
+    val bypassOptions = listOf(
+        stringResource(R.string.bypass_off),
+        stringResource(R.string.bypass_block_on),
+        stringResource(R.string.bypass_block_off),
+    )
+
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { PageHeader("充电保护", onRestartScope) }
-        item { SmallTitle(text = "夜间充电保护") }
+        item { PageHeader(stringResource(R.string.page_charge), onRestartScope) }
+        item { SmallTitle(text = stringResource(R.string.section_night)) }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 SettingItem(
-                    title = "拦截保护入口",
-                    brief = "夜充保护不启动，不再卡 80%",
-                    detail = "夜间充电保护的总入口。它一旦启动就会让底层固件把充电卡在 80%，" +
-                            "拦掉后整条链路都不会启动，连恢复充电的闹钟也不会设置。",
+                    title = stringResource(R.string.night_entry_title),
+                    brief = stringResource(R.string.night_entry_brief),
+                    detail = stringResource(R.string.night_entry_detail),
                     checked = config.killNightEntry,
                     enabled = enabled,
                     onCheckedChange = {
@@ -532,10 +530,9 @@ private fun ChargePage(
                     },
                 )
                 SettingItem(
-                    title = "拦截状态写入（兜底）",
-                    brief = "防止其它路径重新开启保护",
-                    detail = "夜充保护最终靠 setNightChargingState(1) 生效。" +
-                            "即使保护被别的路径启动，这条拦截也会让它无法真正下达限制。",
+                    title = stringResource(R.string.night_state_title),
+                    brief = stringResource(R.string.night_state_brief),
+                    detail = stringResource(R.string.night_state_detail),
                     checked = config.killNightState,
                     enabled = enabled,
                     onCheckedChange = {
@@ -545,14 +542,13 @@ private fun ChargePage(
             }
         }
 
-        item { SmallTitle(text = "通用充电保护") }
+        item { SmallTitle(text = stringResource(R.string.section_general_protect)) }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 SettingItem(
-                    title = "拦截全部充电保护",
-                    brief = "7 个保护策略一律不启动",
-                    detail = "7 个充电保护的共同启动闸门：夜间、导航、高温、长时间、手柄、始终保护。" +
-                            "该闸门在全库只有一份实现、没有任何子类重写，拦一处即可全部失效。",
+                    title = stringResource(R.string.protect_all_title),
+                    brief = stringResource(R.string.protect_all_brief),
+                    detail = stringResource(R.string.protect_all_detail),
                     checked = config.killAllProtect,
                     enabled = enabled,
                     onCheckedChange = {
@@ -560,11 +556,9 @@ private fun ChargePage(
                     },
                 )
                 SettingItem(
-                    title = "拦截通用保护写入",
-                    brief = "不下发 smart_chg 保护位",
-                    detail = "通用保护（高温 / 导航 / 长时）通过 smart_chg 下发保护位：" +
-                            "高 16 位是限制百分比（默认 80%），低 16 位是保护类型。" +
-                            "拦掉后不再向底层下发任何保护指令。",
+                    title = stringResource(R.string.protect_common_title),
+                    brief = stringResource(R.string.protect_common_brief),
+                    detail = stringResource(R.string.protect_common_detail),
                     checked = config.killCommonProtect,
                     enabled = enabled,
                     onCheckedChange = {
@@ -577,22 +571,18 @@ private fun ChargePage(
                         val v = it.toInt().coerceIn(50, 100)
                         onInt(Config.KEY_LIMIT_PERCENT, v) { c -> c.copy(limitPercent = v) }
                     },
-                    title = "限制百分比",
-                    valueText = if (config.limitPercent >= 100) "不限制" else "${config.limitPercent}%",
+                    title = stringResource(R.string.limit_title),
+                    valueText = if (config.limitPercent >= 100) stringResource(R.string.limit_no_limit) else "${config.limitPercent}%",
                     valueRange = 50f..100f,
                     steps = 49,
                     enabled = enabled && !config.killCommonProtect && config.overrideLimit,
                     insideMargin = PaddingValues(16.dp, 12.dp, 16.dp, 8.dp),
                 )
-                DetailRow(
-                    "改写通用保护下发的限制阈值。设为 100 表示不下发限制；" +
-                            "设为 50–99 则把保护阈值改写成该百分比。",
-                )
+                DetailRow(stringResource(R.string.limit_detail))
                 SettingItem(
-                    title = "改写限制百分比",
-                    brief = "关闭后恢复官方原生阈值逻辑",
-                    detail = "关闭后通用保护的限制百分比不再改写，官方原生阈值（默认 80%）原样执行；" +
-                            "开启后才按上方滑块值改写，设为 100 则跳过保护调用。",
+                    title = stringResource(R.string.override_limit_title),
+                    brief = stringResource(R.string.override_limit_brief),
+                    detail = stringResource(R.string.override_limit_detail),
                     checked = config.overrideLimit,
                     enabled = enabled && !config.killCommonProtect,
                     onCheckedChange = {
@@ -602,14 +592,13 @@ private fun ChargePage(
             }
         }
 
-        item { SmallTitle(text = "其它保护") }
+        item { SmallTitle(text = stringResource(R.string.section_other)) }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 SettingItem(
-                    title = "pogo 底座充电保护",
-                    brief = "底座充电超过 79% 时触发的保护",
-                    detail = "使用 pogo 底座 / 触点充电时，电量超过 79% 会触发的充电保护，" +
-                            "用于避免长时间满电放置。",
+                    title = stringResource(R.string.pogo_title),
+                    brief = stringResource(R.string.pogo_brief),
+                    detail = stringResource(R.string.pogo_detail),
                     checked = config.killPogo,
                     enabled = enabled,
                     onCheckedChange = {
@@ -617,10 +606,9 @@ private fun ChargePage(
                     },
                 )
                 SettingItem(
-                    title = "关闭无线静音充电",
-                    brief = "恢复无线充电满功率",
-                    detail = "无线静音充电会压低无线充电功率（对应 smart_chg 的 0x80 位），" +
-                            "开启本项后不再压低，按满功率充电。",
+                    title = stringResource(R.string.wireless_title),
+                    brief = stringResource(R.string.wireless_brief),
+                    detail = stringResource(R.string.wireless_detail),
                     checked = config.killWirelessSilence,
                     enabled = enabled,
                     onCheckedChange = {
@@ -632,52 +620,45 @@ private fun ChargePage(
             }
         }
 
-        item { SmallTitle(text = "快充") }
+        item { SmallTitle(text = stringResource(R.string.section_fast)) }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 OverlayDropdownPreference(
-                    title = "快充开关",
-                    items = FAST_CHARGE_OPTIONS,
+                    title = stringResource(R.string.fast_charge_title),
+                    items = fastChargeOptions,
                     selectedIndex = config.fastChargeMode.coerceIn(0, 2),
                     enabled = enabled,
                     onSelectedIndexChange = {
                         onInt(Config.KEY_FAST_CHARGE_MODE, it) { c -> c.copy(fastChargeMode = it) }
                     },
                 )
-                DetailRow(
-                    "强制改写快充开关与能力判定。选「强制开启」会同时放行机型白名单与属性判定，" +
-                            "用于设备本身支持快充、但因白名单或属性缺失而不生效的情况。",
-                )
+                DetailRow(stringResource(R.string.fast_charge_detail))
             }
         }
 
-        item { SmallTitle(text = "旁路充电") }
+        item { SmallTitle(text = stringResource(R.string.section_bypass)) }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 OverlayDropdownPreference(
-                    title = "旁路充电",
-                    items = BYPASS_OPTIONS,
+                    title = stringResource(R.string.bypass_title),
+                    items = bypassOptions,
                     selectedIndex = config.bypassMode.coerceIn(0, 2),
                     enabled = enabled,
                     onSelectedIndexChange = {
                         onInt(Config.KEY_BYPASS_MODE, it) { c -> c.copy(bypassMode = it) }
                     },
                 )
-                DetailRow(
-                    "旁路充电时会暂停给电池充电、直接给主板供电。" +
-                            "「阻止自动开启」避免边玩边充时停止充电；「阻止自动停止」避免该模式被中途关掉。",
-                )
+                DetailRow(stringResource(R.string.bypass_detail))
             }
         }
 
-        item { SmallTitle(text = "电池健康度") }
+        item { SmallTitle(text = stringResource(R.string.section_health)) }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 SettingItem(
-                    title = "伪装健康度等级",
-                    brief = "改写健康等级返回值",
-                    detail = "拦截电池健康等级的返回值（1–4 级，4 为最优）。" +
-                            "只影响显示与等级判定，不改写底层 SOH 原始数据。",
+                    title = stringResource(R.string.health_fake_title),
+                    brief = stringResource(R.string.health_fake_brief),
+                    detail = stringResource(R.string.health_fake_detail),
                     checked = config.fakeHealth,
                     enabled = enabled,
                     onCheckedChange = {
@@ -690,16 +671,17 @@ private fun ChargePage(
                         val v = it.toInt().coerceIn(1, 4)
                         onInt(Config.KEY_HEALTH_LEVEL, v) { c -> c.copy(healthLevel = v) }
                     },
-                    title = "健康等级",
-                    valueText = "等级 ${config.healthLevel}",
+                    title = stringResource(R.string.health_level_title),
+                    valueText = stringResource(R.string.health_level_value, config.healthLevel),
                     valueRange = 1f..4f,
                     steps = 2,
                     enabled = enabled && config.fakeHealth,
                     insideMargin = PaddingValues(16.dp, 12.dp, 16.dp, 8.dp),
                 )
                 TextInputRow(
-                    title = "自定义健康度显示",
-                    brief = "只改充电保护页那一处百分比。留空不修改，点确定保存并重启安全服务。",
+                    title = stringResource(R.string.health_custom_title),
+                    brief = stringResource(R.string.health_custom_brief),
+                    placeholder = stringResource(R.string.health_custom_placeholder),
                     value = config.uiHealthText,
                     enabled = enabled,
                     onValueChange = {
@@ -713,7 +695,7 @@ private fun ChargePage(
 }
 
 // ---------------------------------------------------------------------------
-// 二级页：系统与性能
+// System & Performance page
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -724,15 +706,14 @@ private fun SystemPage(
 ) {
     val enabled = config.enabled
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { PageHeader("系统与性能", onRestartScope) }
-        item { SmallTitle(text = "性能与电源") }
+        item { PageHeader(stringResource(R.string.page_system), onRestartScope) }
+        item { SmallTitle(text = stringResource(R.string.section_perf)) }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 SettingItem(
-                    title = "拦截电源模式切换",
-                    brief = "性能 / 省电 / 超省电都切不了",
-                    detail = "性能模式、省电模式、超省电模式的切换总闸。" +
-                            "拦掉后三种模式都无法切换；读取当前状态的调用仍然放行，不影响界面显示。",
+                    title = stringResource(R.string.perf_power_mode_title),
+                    brief = stringResource(R.string.perf_power_mode_brief),
+                    detail = stringResource(R.string.perf_power_mode_detail),
                     checked = config.killPowerMode,
                     enabled = enabled,
                     onCheckedChange = {
@@ -740,10 +721,9 @@ private fun SystemPage(
                     },
                 )
                 SettingItem(
-                    title = "拦截超省电模式",
-                    brief = "解除超省电的一连串限制",
-                    detail = "超省电模式一进入会连锁触发：禁用应用、锁屏杀进程、冻结自启动与唤醒路径、" +
-                            "动画归零、限制通知与状态栏、触控降级。掐掉入口即可一次性全部解除。",
+                    title = stringResource(R.string.perf_super_save_title),
+                    brief = stringResource(R.string.perf_super_save_brief),
+                    detail = stringResource(R.string.perf_super_save_detail),
                     checked = config.killSuperSave,
                     enabled = enabled,
                     onCheckedChange = {
@@ -751,10 +731,9 @@ private fun SystemPage(
                     },
                 )
                 SettingItem(
-                    title = "禁止降频 / 降亮度",
-                    brief = "刷新率不再被锁 60Hz",
-                    detail = "进入省电模式后系统会：把屏幕刷新率锁到 60Hz（省电后手感变卡的主因）、" +
-                            "降低屏幕亮度、缩短息屏超时。开启后这三项都不再被改动。",
+                    title = stringResource(R.string.perf_fps_title),
+                    brief = stringResource(R.string.perf_fps_brief),
+                    detail = stringResource(R.string.perf_fps_detail),
                     checked = config.noFpsThrottle,
                     enabled = enabled,
                     onCheckedChange = {
@@ -762,11 +741,9 @@ private fun SystemPage(
                     },
                 )
                 SettingItem(
-                    title = "禁止温控降频",
-                    brief = "高温不强制降档",
-                    detail = "温度升高时系统会下发温控档位，写系统属性 persist.sys.thermal.config " +
-                            "以及内核节点 /sys/class/thermal/thermal_message/sconfig，" +
-                            "以此限制 CPU / GPU 频率。开启后不再下发。",
+                    title = stringResource(R.string.perf_thermal_title),
+                    brief = stringResource(R.string.perf_thermal_brief),
+                    detail = stringResource(R.string.perf_thermal_detail),
                     checked = config.noThermalLimit,
                     enabled = enabled,
                     onCheckedChange = {
@@ -776,15 +753,13 @@ private fun SystemPage(
             }
         }
 
-        item { SmallTitle(text = "系统与后台") }
+        item { SmallTitle(text = stringResource(R.string.section_system)) }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 SettingItem(
-                    title = "解除 AppOps 限制",
-                    brief = "7 种 MIUI 私有限制一并放行",
-                    detail = "MIUI 的 7 种私有限制：10048 禁止安装应用、10049 禁止链式启动、" +
-                            "10050 限制设备标识读取、10041 录屏保护、119 无障碍服务受限、" +
-                            "10054 / 10055 限制 AI 读屏与控屏。",
+                    title = stringResource(R.string.sys_appops_title),
+                    brief = stringResource(R.string.sys_appops_brief),
+                    detail = stringResource(R.string.sys_appops_detail),
                     checked = config.noAppOpsRestrict,
                     enabled = enabled,
                     onCheckedChange = {
@@ -792,10 +767,9 @@ private fun SystemPage(
                     },
                 )
                 SettingItem(
-                    title = "禁止清理杀后台",
-                    brief = "一键清理不再杀进程",
-                    detail = "一键清理会调用 killBackgroundProcesses 杀掉后台进程、批量杀进程 id，" +
-                            "并把应用从最近任务列表移除。开启后这些动作都不再执行。",
+                    title = stringResource(R.string.sys_kill_bg_title),
+                    brief = stringResource(R.string.sys_kill_bg_brief),
+                    detail = stringResource(R.string.sys_kill_bg_detail),
                     checked = config.noKillBackground,
                     enabled = enabled,
                     onCheckedChange = {
@@ -803,11 +777,9 @@ private fun SystemPage(
                     },
                 )
                 SettingItem(
-                    title = "强制允许自启动",
-                    brief = "允许开机自启与自动拉起",
-                    detail = "自启动限制写在平台权限库的 PERM_ID_AUTOSTART 上（禁止 = 1，允许 = 3），" +
-                            "不走 Settings 也不走 AppOps，所以常规方案对它无效。" +
-                            "系统禁止自启动时还会顺带杀掉该应用的进程。",
+                    title = stringResource(R.string.sys_autostart_title),
+                    brief = stringResource(R.string.sys_autostart_brief),
+                    detail = stringResource(R.string.sys_autostart_detail),
                     checked = config.allowAutostart,
                     enabled = enabled,
                     onCheckedChange = {
@@ -817,15 +789,13 @@ private fun SystemPage(
             }
         }
 
-        item { SmallTitle(text = "网络限制") }
+        item { SmallTitle(text = stringResource(R.string.section_network)) }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 SettingItem(
-                    title = "解除联网限制",
-                    brief = "WiFi / 移动数据联网全部放行",
-                    detail = "按应用逐个控制联网权限：WiFi 与移动数据分开，移动数据还分 SIM 卡槽。" +
-                            "规则来源除了手动设置，还有系统预置的联网配置。" +
-                            "开启后一律放行，不再限制任何应用联网。",
+                    title = stringResource(R.string.net_restrict_title),
+                    brief = stringResource(R.string.net_restrict_brief),
+                    detail = stringResource(R.string.net_restrict_detail),
                     checked = config.noNetworkRestrict,
                     enabled = enabled,
                     onCheckedChange = {
@@ -833,10 +803,9 @@ private fun SystemPage(
                     },
                 )
                 SettingItem(
-                    title = "解除后台联网限制",
-                    brief = "后台也能正常联网",
-                    detail = "系统为省电会限制应用在后台使用网络，按应用 uid 逐条设置，" +
-                            "另有一个全局开关。开启后应用在后台可正常联网。",
+                    title = stringResource(R.string.net_bg_title),
+                    brief = stringResource(R.string.net_bg_brief),
+                    detail = stringResource(R.string.net_bg_detail),
                     checked = config.noBgNetworkRestrict,
                     enabled = enabled,
                     onCheckedChange = {
@@ -846,10 +815,9 @@ private fun SystemPage(
                     },
                 )
                 SettingItem(
-                    title = "解除流量超限停网",
-                    brief = "套餐用尽不再自动断网",
-                    detail = "套餐流量用尽时系统会直接关闭移动数据开关，表现为突然断网。" +
-                            "开启后不再自动断网，流量用尽需自行留意。",
+                    title = stringResource(R.string.net_traffic_title),
+                    brief = stringResource(R.string.net_traffic_brief),
+                    detail = stringResource(R.string.net_traffic_detail),
                     checked = config.noTrafficCutoff,
                     enabled = enabled,
                     onCheckedChange = {
@@ -857,10 +825,9 @@ private fun SystemPage(
                     },
                 )
                 SettingItem(
-                    title = "解除热点流量限制",
-                    brief = "热点超限不再中断",
-                    detail = "热点共享流量达到上限时系统会关闭热点并弹出提示。" +
-                            "开启后不再中断热点共享。",
+                    title = stringResource(R.string.net_tether_title),
+                    brief = stringResource(R.string.net_tether_brief),
+                    detail = stringResource(R.string.net_tether_detail),
                     checked = config.noTetherLimit,
                     enabled = enabled,
                     onCheckedChange = {
@@ -870,14 +837,13 @@ private fun SystemPage(
             }
         }
 
-        item { SmallTitle(text = "安装") }
+        item { SmallTitle(text = stringResource(R.string.section_install)) }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 SettingItem(
-                    title = "解除安装签名校验",
-                    brief = "第三方安装器不再被拦",
-                    detail = "安装时会比对 APK 的签名摘要与白名单（小米官方签名，或系统已记录的签名），" +
-                            "不一致就中止安装。第三方安装器、部分自签名应用常被这条拦住。",
+                    title = stringResource(R.string.install_verify_title),
+                    brief = stringResource(R.string.install_verify_brief),
+                    detail = stringResource(R.string.install_verify_detail),
                     checked = config.noInstallVerify,
                     enabled = enabled,
                     onCheckedChange = {
@@ -890,7 +856,7 @@ private fun SystemPage(
 }
 
 // ---------------------------------------------------------------------------
-// 二级页：设置
+// Settings page
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -903,9 +869,36 @@ private fun SettingsPage(
     onPersist: (Boolean) -> Unit,
     onRestartScope: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val langOptions = listOf(
+        stringResource(R.string.language_follow_system),
+        stringResource(R.string.language_zh),
+        stringResource(R.string.language_en),
+    )
+    val langValues = listOf(LocaleHelper.LANG_SYSTEM, LocaleHelper.LANG_ZH, LocaleHelper.LANG_EN)
+    val currentLang = remember { LocaleHelper.getSavedLanguage(context) }
+    val selectedLangIndex = langValues.indexOf(currentLang).coerceAtLeast(0)
+
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { PageHeader("设置", onRestartScope) }
-        item { SmallTitle(text = "持久化落地（模块关闭后仍生效）") }
+        item { PageHeader(stringResource(R.string.page_settings), onRestartScope) }
+
+        item { SmallTitle(text = stringResource(R.string.section_language)) }
+        item {
+            Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
+                OverlayDropdownPreference(
+                    title = stringResource(R.string.language_title),
+                    items = langOptions,
+                    selectedIndex = selectedLangIndex,
+                    onSelectedIndexChange = { idx ->
+                        val lang = langValues[idx]
+                        LocaleHelper.saveLanguage(context, lang)
+                        (context as? ComponentActivity)?.recreate()
+                    },
+                )
+            }
+        }
+
+        item { SmallTitle(text = stringResource(R.string.section_persist)) }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 PersistBlock(
@@ -918,14 +911,13 @@ private fun SettingsPage(
             }
         }
 
-        item { SmallTitle(text = "调试") }
+        item { SmallTitle(text = stringResource(R.string.section_debug)) }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 SettingItem(
-                    title = "输出调试日志",
-                    brief = "记录每次拦截到 logcat",
-                    detail = "开启后每次拦截都会写入日志，用 logcat -s MeowPower 查看。" +
-                            "排查某个功能是否生效时打开，平时建议关闭。",
+                    title = stringResource(R.string.debug_title),
+                    brief = stringResource(R.string.debug_brief),
+                    detail = stringResource(R.string.debug_detail),
                     checked = config.debugLog,
                     enabled = config.enabled,
                     onCheckedChange = {
@@ -935,7 +927,7 @@ private fun SettingsPage(
             }
         }
 
-        item { SmallTitle(text = "关于") }
+        item { SmallTitle(text = stringResource(R.string.section_about)) }
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 AboutBlock()
@@ -944,10 +936,7 @@ private fun SettingsPage(
 
         item {
             Text(
-                text = "配置修改即时生效，无需重启目标应用。\n" +
-                        "首次启用模块或更新模块代码后，需要重启安全服务进程。\n" +
-                        "持久化落地不依赖模块运行，可在停用模块后继续生效。\n\n" +
-                        "本模块仅修改本机行为，不涉及数据上传。",
+                text = stringResource(R.string.footer_text),
                 fontSize = 12.sp,
                 color = Color.Gray,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
@@ -957,7 +946,7 @@ private fun SettingsPage(
 }
 
 // ---------------------------------------------------------------------------
-// 关于
+// About
 // ---------------------------------------------------------------------------
 
 private const val ABOUT_AUTHOR = "yuhj319"
@@ -992,13 +981,12 @@ private fun AboutBlock() {
     Column(modifier = Modifier.padding(vertical = 12.dp)) {
         AboutHero()
         Spacer(modifier = Modifier.height(6.dp))
-        LinkRow(label = "作者", value = ABOUT_AUTHOR, url = ABOUT_AUTHOR_URL)
-        LinkRow(label = "仓库", value = ABOUT_REPO_NAME, url = ABOUT_REPO_URL)
+        LinkRow(label = stringResource(R.string.about_author), value = ABOUT_AUTHOR, url = ABOUT_AUTHOR_URL)
+        LinkRow(label = stringResource(R.string.about_repo), value = ABOUT_REPO_NAME, url = ABOUT_REPO_URL)
         AboutVersionRow()
     }
 }
 
-/** 关于页顶部的花哨横幅：流动渐变底 + 眨眼猫头 + 彩虹标题 + 蹦跶爪印。 */
 @Composable
 private fun AboutHero() {
     val transition = rememberInfiniteTransition(label = "about")
@@ -1037,7 +1025,7 @@ private fun AboutHero() {
             CollidingIcons(transition = transition)
             Spacer(modifier = Modifier.height(10.dp))
             BasicText(
-                text = "喵力全开",
+                text = stringResource(R.string.app_name),
                 style = TextStyle(
                     brush = Brush.linearGradient(
                         colors = listOf(
@@ -1061,7 +1049,6 @@ private fun AboutHero() {
     }
 }
 
-/** 一对图标对撞：从两侧靠近→撞击挤压→弹回，撞击瞬间炸出闪光。 */
 @Composable
 private fun CollidingIcons(transition: InfiniteTransition) {
     val approach by transition.animateFloat(
@@ -1133,7 +1120,6 @@ private fun CollidingIcons(transition: InfiniteTransition) {
     }
 }
 
-/** 对撞的一方：位置由 [xDp] 驱动，撞击时压扁并微微回正倾斜。 */
 @Composable
 private fun BoxScope.IconFighter(xDp: Float, squash: Float, tilt: Float) {
     val progress = ((xDp + 36f) / -56f).coerceIn(0f, 1f)
@@ -1154,7 +1140,6 @@ private fun BoxScope.IconFighter(xDp: Float, squash: Float, tilt: Float) {
     )
 }
 
-/** 可点击跳转浏览器的链接行。 */
 @Composable
 private fun LinkRow(label: String, value: String, url: String) {
     val context = LocalContext.current
@@ -1174,7 +1159,6 @@ private fun LinkRow(label: String, value: String, url: String) {
     }
 }
 
-/** 版本行：读包管理器拿真实 versionName / versionCode。 */
 @Composable
 private fun AboutVersionRow() {
     val context = LocalContext.current
@@ -1186,7 +1170,7 @@ private fun AboutVersionRow() {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = "版本", fontSize = 15.sp)
+            Text(text = stringResource(R.string.about_version), fontSize = 15.sp)
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = "v$name ($code)", fontSize = 13.sp, color = Color.Gray)
         }
@@ -1194,10 +1178,9 @@ private fun AboutVersionRow() {
 }
 
 // ---------------------------------------------------------------------------
-// 通用组件
+// Shared components
 // ---------------------------------------------------------------------------
 
-/** 页面大标题。首页用应用名，其余页用功能分类名。 */
 @Composable
 private fun PageTitle(text: String) {
     Text(
@@ -1207,7 +1190,6 @@ private fun PageTitle(text: String) {
     )
 }
 
-/** 大页页头：大标题 + 右上角重启作用域按钮。 */
 @Composable
 private fun PageHeader(title: String, onRestartScope: () -> Unit, titleColor: Color? = null) {
     Row(
@@ -1223,45 +1205,38 @@ private fun PageHeader(title: String, onRestartScope: () -> Unit, titleColor: Co
             modifier = Modifier.weight(1f),
         )
         TextButton(
-            text = "重启作用域",
+            text = stringResource(R.string.restart_scope),
             onClick = onRestartScope,
         )
     }
 }
 
-/**
- * 付款支持页。只做提示，不校验是否真的付过款，
- * 点「我已付款」即视为通过，结果记在本地偏好里，之后不再出现。
- * 连续两次确认未付款后，开放免费试用入口，以未授权模式进入。
- */
 @Composable
 private fun HonorPayWall(onConfirm: () -> Unit, onTrial: () -> Unit) {
-    // 0 无弹窗，1 第一次询问，2 第二次询问
     var dialogStep by remember { mutableStateOf(0) }
     var trialUnlocked by remember { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 32.dp),
-        // 内容不足一屏时整体居中，避免全挤在上半屏；超出一屏时仍可正常滚动
         verticalArrangement = Arrangement.Center,
     ) {
-        item { PageTitle("付款支持") }
+        item { PageTitle(stringResource(R.string.pay_title)) }
 
         item {
             Card(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(text = "¥8", fontSize = 36.sp)
+                    Text(text = stringResource(R.string.pay_price), fontSize = 36.sp)
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text(text = "本模块售价 8 元", fontSize = 15.sp)
+                    Text(text = stringResource(R.string.pay_price_desc), fontSize = 15.sp)
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "扫码支付 8 元即可进入使用，不设功能限制。",
+                        text = stringResource(R.string.pay_desc),
                         fontSize = 13.sp,
                         color = Color.Gray,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "暂不付款时，连续两次确认未付款后可免费试用（未授权模式，每日过期）。",
+                        text = stringResource(R.string.pay_trial_note),
                         fontSize = 11.sp,
                         color = Color.Gray,
                     )
@@ -1270,15 +1245,15 @@ private fun HonorPayWall(onConfirm: () -> Unit, onTrial: () -> Unit) {
         }
 
         item {
-            SmallTitle(text = "收款码")
+            SmallTitle(text = stringResource(R.string.pay_qr_title))
             Card(
                 modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp),
                 insideMargin = PaddingValues(0.dp),
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                    QrCode(R.drawable.qr_code_1, "收款码一")
+                    QrCode(R.drawable.qr_code_1, stringResource(R.string.pay_qr_1))
                     Spacer(modifier = Modifier.height(14.dp))
-                    QrCode(R.drawable.qr_code_2, "收款码二")
+                    QrCode(R.drawable.qr_code_2, stringResource(R.string.pay_qr_2))
                 }
             }
         }
@@ -1291,7 +1266,7 @@ private fun HonorPayWall(onConfirm: () -> Unit, onTrial: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 BasicText(
-                    text = "已支付 8 元，进入",
+                    text = stringResource(R.string.pay_enter),
                     style = TextStyle(
                         color = Color(0xFF2E7CF6),
                         fontSize = 13.sp,
@@ -1308,7 +1283,7 @@ private fun HonorPayWall(onConfirm: () -> Unit, onTrial: () -> Unit) {
                     contentAlignment = Alignment.Center,
                 ) {
                     BasicText(
-                        text = "免费试用，进入",
+                        text = stringResource(R.string.pay_trial_enter),
                         style = TextStyle(
                             color = Color.Gray,
                             fontSize = 13.sp,
@@ -1320,16 +1295,15 @@ private fun HonorPayWall(onConfirm: () -> Unit, onTrial: () -> Unit) {
             }
             if (dialogStep == 1) {
                 PayConfirmDialog(
-                    title = "付款确认",
+                    title = stringResource(R.string.pay_confirm_title),
                     unpaidFirst = true,
-                    // 第一次无论选哪项都进入第二次询问，最终以第二次选择为准
                     onPaid = { dialogStep = 2 },
                     onUnpaid = { dialogStep = 2 },
                     onDismiss = { dialogStep = 0 },
                 )
             } else if (dialogStep == 2) {
                 PayConfirmDialog(
-                    title = "再次确认",
+                    title = stringResource(R.string.pay_confirm_again),
                     unpaidFirst = false,
                     onPaid = {
                         dialogStep = 0
@@ -1346,10 +1320,6 @@ private fun HonorPayWall(onConfirm: () -> Unit, onTrial: () -> Unit) {
     }
 }
 
-/**
- * 付款确认框，共询问两次：第一次「未付款」在左，第二次在右。
- * 「未付款」蓝色大字，「我已付款」灰色小字，选择后均不做校验。
- */
 @Composable
 private fun PayConfirmDialog(
     title: String,
@@ -1366,7 +1336,7 @@ private fun PayConfirmDialog(
             ) {
                 Text(text = title, fontSize = 16.sp)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(text = "是否已完成付款？", fontSize = 13.sp, color = Color.Gray)
+                Text(text = stringResource(R.string.pay_confirm_question), fontSize = 13.sp, color = Color.Gray)
                 Spacer(modifier = Modifier.height(20.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1386,11 +1356,10 @@ private fun PayConfirmDialog(
     }
 }
 
-/** 确认框里的「未付款」：蓝色大字。 */
 @Composable
 private fun UnpaidOption(onClick: () -> Unit) {
     BasicText(
-        text = "未付款",
+        text = stringResource(R.string.pay_unpaid),
         style = TextStyle(
             color = Color(0xFF2E7CF6),
             fontSize = 17.sp,
@@ -1402,11 +1371,10 @@ private fun UnpaidOption(onClick: () -> Unit) {
     )
 }
 
-/** 确认框里的「我已付款」：灰色小字，点后直接进入，不做校验。 */
 @Composable
 private fun PaidOption(onClick: () -> Unit) {
     BasicText(
-        text = "我已付款",
+        text = stringResource(R.string.pay_paid),
         style = TextStyle(
             color = Color.Gray.copy(alpha = 0.6f),
             fontSize = 12.sp,
@@ -1417,10 +1385,6 @@ private fun PaidOption(onClick: () -> Unit) {
     )
 }
 
-/**
- * 收款码。宽度自适应：跟随容器但不超过 [maxWidth]，在容器内水平居中。
- * 垫一层白底，保证深色模式下二维码仍然清晰可扫。
- */
 @Composable
 private fun QrCode(resId: Int, desc: String, maxWidth: Dp = 300.dp) {
     Box(
@@ -1440,9 +1404,6 @@ private fun QrCode(resId: Int, desc: String, maxWidth: Dp = 300.dp) {
     }
 }
 
-/**
- * 带可展开详情的开关项：常驻一行摘要，点「详情」展开完整说明。
- */
 @Composable
 private fun SettingItem(
     title: String,
@@ -1465,11 +1426,11 @@ private fun SettingItem(
     ExpandableDetail(detail = detail, expanded = expanded, onToggle = { expanded = !expanded })
 }
 
-/** 单行文本输入行：标题 + 说明，输入框与确定按钮横向排列，空值显示占位提示。输入先存草稿，点确定才写入。 */
 @Composable
 private fun TextInputRow(
     title: String,
     brief: String,
+    placeholder: String = "",
     value: String,
     enabled: Boolean,
     onValueChange: (String) -> Unit,
@@ -1498,7 +1459,7 @@ private fun TextInputRow(
                 decorationBox = { inner ->
                     Box {
                         if (draft.isEmpty()) {
-                            Text(text = "如：88%", fontSize = 15.sp, color = Color.Gray)
+                            Text(text = placeholder, fontSize = 15.sp, color = Color.Gray)
                         }
                         inner()
                     }
@@ -1506,7 +1467,7 @@ private fun TextInputRow(
             )
             Spacer(modifier = Modifier.width(8.dp))
             TextButton(
-                text = "确定",
+                text = stringResource(R.string.btn_confirm),
                 onClick = {
                     onValueChange(draft)
                     onConfirmed()
@@ -1517,7 +1478,6 @@ private fun TextInputRow(
     }
 }
 
-/** 给滑块 / 下拉项用的详情行，视觉与 [SettingItem] 一致。 */
 @Composable
 private fun DetailRow(detail: String) {
     var expanded by remember { mutableStateOf(false) }
@@ -1550,24 +1510,20 @@ private fun ExpandableDetail(detail: String, expanded: Boolean, onToggle: () -> 
     }
 }
 
-/**
- * 状态卡，模仿 KernelSU 主页顶部那块：纯色圆角底 + 大号状态字 + 版本行 +
- * 右侧一枚半透明徽标（正常对勾、异常感叹号）。
- */
 @Composable
 private fun StatusHeroCard(service: XposedService?, hasPrefs: Boolean) {
     val connected = service != null && hasPrefs
     val bg = if (connected) HERO_OK_BG else HERO_WARN_BG
     val fg = if (connected) OK_GREEN else WARN_RED
     val headline = when {
-        service == null -> "未连接"
-        !hasPrefs -> "配置不可用"
-        else -> "工作中"
+        service == null -> stringResource(R.string.status_not_connected)
+        !hasPrefs -> stringResource(R.string.status_config_unavailable)
+        else -> stringResource(R.string.status_working)
     }
     val versionLine = if (service != null) {
-        "版本：${service.frameworkVersion} (${service.apiVersion})"
+        stringResource(R.string.status_version, service.frameworkVersion, service.apiVersion.toString())
     } else {
-        "版本：—"
+        stringResource(R.string.status_version_none)
     }
 
     Box(
@@ -1599,7 +1555,6 @@ private fun StatusHeroCard(service: XposedService?, hasPrefs: Boolean) {
     }
 }
 
-/** 半透明圆形徽标：正常画对勾，异常画感叹号。 */
 @Composable
 private fun HeroBadge(ok: Boolean, color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
@@ -1630,10 +1585,6 @@ private fun HeroBadge(ok: Boolean, color: Color, modifier: Modifier = Modifier) 
     }
 }
 
-/**
- * 信息卡，模仿 KernelSU 主页下方那块：每项 label 在上、value 在下，
- * 项与项之间只靠间距分隔，没有分割线。
- */
 @Composable
 private fun StatusInfoCard(service: XposedService?, rootAvailable: Boolean?) {
     Card(
@@ -1642,16 +1593,16 @@ private fun StatusInfoCard(service: XposedService?, rootAvailable: Boolean?) {
             .padding(top = 14.dp),
         insideMargin = PaddingValues(vertical = 10.dp),
     ) {
-        InfoItem("框架", service?.frameworkName ?: "—")
-        InfoItem("版本", service?.frameworkVersion ?: "—")
-        InfoItem("API", service?.apiVersion?.toString() ?: "—")
-        InfoItem("作用域", scopeText(service))
+        InfoItem(stringResource(R.string.info_framework), service?.frameworkName ?: stringResource(R.string.info_na))
+        InfoItem(stringResource(R.string.info_version), service?.frameworkVersion ?: stringResource(R.string.info_na))
+        InfoItem(stringResource(R.string.info_api), service?.apiVersion?.toString() ?: stringResource(R.string.info_na))
+        InfoItem(stringResource(R.string.info_scope), scopeText(service))
         InfoItem(
-            label = "Root",
+            label = stringResource(R.string.info_root),
             value = when (rootAvailable) {
-                null -> "检测中…"
-                true -> "已授权"
-                false -> "未授权"
+                null -> stringResource(R.string.info_root_checking)
+                true -> stringResource(R.string.info_root_granted)
+                false -> stringResource(R.string.info_root_denied)
             },
             valueColor = when (rootAvailable) {
                 true -> OK_GREEN
@@ -1661,8 +1612,8 @@ private fun StatusInfoCard(service: XposedService?, rootAvailable: Boolean?) {
         )
         if (service == null) {
             InfoItem(
-                label = "提示",
-                value = "请在 LSPosed 中启用本模块，作用域勾选「安全服务」，然后重启该进程。",
+                label = stringResource(R.string.info_hint),
+                value = stringResource(R.string.info_hint_detail),
                 valueColor = WARN_RED,
             )
         }
@@ -1689,7 +1640,7 @@ private fun InfoItem(label: String, value: String, valueColor: Color? = null) {
 @Composable
 private fun MonitorBlock(state: ChargeState?, updatedAt: Long) {
     val summary = when {
-        state == null -> "读取中…"
+        state == null -> stringResource(R.string.monitor_reading)
         !state.ok -> state.message
         else -> "${state.capacity}%  ${state.status}  ${fmt("A", state.currentMa / 1000f)}  ${fmt("W", state.powerMw() / 1000f)}"
     }
@@ -1715,7 +1666,7 @@ private fun MonitorBlock(state: ChargeState?, updatedAt: Long) {
     }
 
     Text(
-        text = if (updatedAt > 0) "更新于 ${timeText(updatedAt)} · 每 2 秒自动刷新" else "正在读取…",
+        text = if (updatedAt > 0) stringResource(R.string.monitor_auto_refresh, timeText(updatedAt)) else stringResource(R.string.monitor_loading),
         fontSize = 11.sp,
         color = Color.Gray,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 14.dp),
@@ -1731,28 +1682,28 @@ private fun PersistBlock(
     onRestore: () -> Unit,
 ) {
     Text(
-        text = "用 root 把「禁用保护」写进系统属性与 Settings。落地后即使停用或卸载本模块，限制也不会回来。应用前会自动备份原值。",
+        text = stringResource(R.string.persist_desc),
         fontSize = 12.sp,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
     Text(
         text = when {
-            busy -> "执行中…"
-            applied -> "当前：已落地"
-            else -> "当前：未落地"
+            busy -> stringResource(R.string.persist_working)
+            applied -> stringResource(R.string.persist_state_applied)
+            else -> stringResource(R.string.persist_state_clean)
         },
         fontSize = 14.sp,
         modifier = Modifier.padding(horizontal = 16.dp),
     )
     Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp)) {
         TextButton(
-            text = "应用落地",
+            text = stringResource(R.string.persist_apply),
             onClick = onApply,
             enabled = !busy,
             modifier = Modifier.weight(1f),
         )
         TextButton(
-            text = "还原原值",
+            text = stringResource(R.string.persist_restore),
             onClick = onRestore,
             enabled = !busy,
             modifier = Modifier.weight(1f).padding(start = 8.dp),
