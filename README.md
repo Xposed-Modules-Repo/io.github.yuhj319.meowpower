@@ -1,61 +1,61 @@
-# MeowPower 喵力全开 — 小米澎湃 HyperOS 红米 Redmi 安全中心 优化LSPosed 模块
+# MeowPower 喵力全开 — Xiaomi HyperOS / Redmi Security Center LSPosed Module
 
-小米安全中心的策略偏保守：过夜充电锁 80%、省电锁 60Hz、一键清理杀后台……这个 LSPosed 模块把 20 多项开关交到你手上，想开就开、想拦就拦，改完即时生效。适用小米 / 红米（Redmi）全系，澎湃 OS（HyperOS）自带安全中心（com.miui.securitycenter）。
+Xiaomi's Security Center plays it safe: overnight charging caps at 80%, battery saver locks 60 Hz, one-tap cleanup kills background apps… This LSPosed module puts 20+ toggles in your hands — enable or block whatever you want, changes take effect immediately. Works on all Xiaomi / Redmi devices running HyperOS with the built-in Security Center (`com.miui.securitycenter`).
 
-- 包名：`io.github.yuhj319.meowpower`，当前版本 7.2
-- 适用：安全服务（小米/红米）、Android 16 / 17、LSPosed（libxposed API 102）
-
----
-
-## 能调什么
-
-**充电保护**
-- 夜间充电保护（不再过夜卡 80%）、通用保护总闸、限制百分比（50–100）
-- pogo 底座保护、无线静音充电、快充（不干预 / 强制开 / 强制关）、旁路充电、电池健康度伪装
-- 自定义健康度显示：改写充电保护页的健康度百分比，留空不修改，点确定保存并自动重启安全服务
-
-**性能与电源**
-- 拦截电源模式切换、超省电模式、省电降频 / 降亮度、温控降频
-
-**系统与后台**
-- 解除 AppOps 私有限制、一键清理不杀后台、强制允许自启动
-
-**网络与安装**
-- 解除联网 / 后台联网 / 流量超限停网 / 热点流量限制、解除安装签名校验
-
-**其它（需 root）**
-- 实时监控：电量、电流、功率、温度等，每 2 秒自动刷新
-- 持久化落地：把「禁用保护」写进系统属性与 Settings，停用甚至卸载模块后依然有效，应用前自动备份、可一键还原
-
-装完默认即生效的是夜充双拦截 + 通用保护不限流；其余按需开启，建议先只开「拦截保护入口」，观察几天再加别的。
+- Package: `io.github.yuhj319.meowpower`, current version 7.2
+- Requires: Security Services (Xiaomi/Redmi), Android 16/17, LSPosed (libxposed API 102)
 
 ---
 
-## 怎么用
+## What You Can Control
 
-1. 安装 APK。
-2. LSPosed 里启用「喵力全开」，作用域勾选**安全服务**（`com.miui.securitycenter`）。
-3. 重启安全服务进程（或重启手机）。改完配置也可以直接点各页右上角的「重启作用域」。
-4. 打开模块按需开启。
+**Charging Protection**
+- Night charging protection (stop the overnight 80% cap), master protection toggle, limit percentage (50–100)
+- Pogo dock protection, wireless silent charging, fast charge (don't touch / force on / force off), bypass charging, battery health spoofing
+- Custom health display: override the health percentage shown on the charging protection page (leave blank to keep original; tap OK to save and auto-restart Security Services)
 
-root 相关功能（实时监控、持久化落地）首次使用时会弹 su 授权。
+**Performance & Power**
+- Block power mode switching, ultra battery saver, battery saver frequency/brightness throttling, thermal throttling
+
+**System & Background**
+- Remove AppOps private restrictions, prevent one-tap cleanup from killing background apps, force-allow autostart
+
+**Network & Installation**
+- Remove network / background network / data-cap cutoff / hotspot data restrictions, bypass app install signature verification
+
+**Other (requires root)**
+- Real-time monitor: battery level, current, power, temperature, etc., auto-refreshes every 2 seconds
+- Persistent settings: write "disable protection" into system properties and Settings — stays effective even after disabling or uninstalling the module; auto-backup before applying, one-tap restore
+
+The defaults that take effect right after install are night-charge double-block + unrestricted general protection. Enable the rest as needed — it's recommended to start with just "Block protection entry" and observe for a few days before adding more.
 
 ---
 
-## 注意
+## How to Use
 
-- 快充「强制开启」救不了硬件不支持的机型；旁路充电只做阻止自动开/关，不做强制开启。
-- 持久化落地的 `persist.vendor.*` 在部分设备上会被 SELinux 拦截，界面会逐项报告，装 Magisk 后成功率最高。
-- 本模块仅修改本机行为，不上传任何数据。
+1. Install the APK.
+2. In LSPosed, enable "MeowPower" and select **Security Services** (`com.miui.securitycenter`) as the scope.
+3. Restart the Security Services process (or reboot the phone). After changing settings you can also tap "Restart Scope" in the top-right corner of each page.
+4. Open the module and enable features as needed.
+
+Root-dependent features (real-time monitor, persistent settings) will prompt for su authorization on first use.
 
 ---
 
-## 更新日志
+## Notes
+
+- "Force enable" fast charging won't work on hardware that doesn't support it; bypass charging only blocks auto on/off, it doesn't force-enable.
+- `persist.vendor.*` persistent properties may be blocked by SELinux on some devices — the UI reports each item's status; success rate is highest with Magisk installed.
+- This module only modifies local device behavior and does not upload any data.
+
+---
+
+## Changelog
 
 ### 6.0
 
-- 新增免费体验版：直接进入体验全部功能（未授权模式，每日重置）
-- 各页面右上角新增「重启作用域」：改完配置一键重启安全服务即生效
-- 新增自定义健康度显示：改写充电保护页的健康度百分比，留空不修改
-- 新增「改写限制百分比」开关：关闭后恢复官方原生阈值逻辑
-- 首页连接状态改为实时刷新，无需等待
+- Added free trial mode: access all features directly (unauthorized mode, resets daily)
+- Added "Restart Scope" button in the top-right corner of each page: one-tap restart of Security Services after changing settings
+- Added custom health display: override the health percentage on the charging protection page (leave blank to keep original)
+- Added "Override limit percentage" toggle: disable to restore the official stock threshold logic
+- Home screen connection status now refreshes in real time, no waiting required

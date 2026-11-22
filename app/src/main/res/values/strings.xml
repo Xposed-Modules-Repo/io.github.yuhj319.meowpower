@@ -95,4 +95,167 @@
     <string name="debug_hint">日志 TAG：MeowPower。可用 logcat -s MeowPower 观察。</string>
 
     <string name="footer">配置修改即时生效，无需重启目标应用。\n首次启用模块或更新模块代码后，需要重启安全服务进程。\n持久化落地不依赖模块运行，可在停用模块后继续生效。\n\n本模块仅修改本机充电行为，不涉及数据上传。</string>
+
+    <!-- UI strings extracted from MainActivity.kt -->
+    <string name="tab_home">主页</string>
+    <string name="tab_charge">充电</string>
+    <string name="tab_system">系统</string>
+    <string name="tab_settings">设置</string>
+
+    <string name="app_name_unlicensed">喵力全开（未授权）</string>
+    <string name="restart_scope">重启作用域</string>
+    <string name="restart_scope_ok">已重启安全服务</string>
+    <string name="restart_scope_fail">重启失败：root 不可用</string>
+
+    <string name="status_not_connected">未连接</string>
+    <string name="status_config_unavailable">配置不可用</string>
+    <string name="status_working">工作中</string>
+    <string name="status_version">版本：%1$s (%2$s)</string>
+    <string name="status_version_none">版本：—</string>
+
+    <string name="info_framework">框架</string>
+    <string name="info_version">版本</string>
+    <string name="info_api">API</string>
+    <string name="info_scope">作用域</string>
+    <string name="info_root">Root</string>
+    <string name="info_root_checking">检测中…</string>
+    <string name="info_root_granted">已授权</string>
+    <string name="info_root_denied">未授权</string>
+    <string name="info_hint">提示</string>
+    <string name="info_hint_detail">请在 LSPosed 中启用本模块，作用域勾选「安全服务」，然后重启该进程。</string>
+    <string name="info_na">—</string>
+
+    <string name="master_title">启用模块</string>
+    <string name="master_brief">关闭后所有 Hook 干预立即停止</string>
+    <string name="master_detail">关闭后本模块不再拦截任何行为，目标应用恢复原生逻辑。已经通过「持久化落地」写进系统属性与 Settings 的改动不受影响，需要另行还原。</string>
+
+    <string name="night_entry_title">拦截保护入口</string>
+    <string name="night_entry_brief">夜充保护不启动，不再卡 80%%</string>
+    <string name="night_entry_detail">夜间充电保护的总入口。它一旦启动就会让底层固件把充电卡在 80%%，拦掉后整条链路都不会启动，连恢复充电的闹钟也不会设置。</string>
+    <string name="night_state_title">拦截状态写入（兜底）</string>
+    <string name="night_state_brief">防止其它路径重新开启保护</string>
+    <string name="night_state_detail">夜充保护最终靠 setNightChargingState(1) 生效。即使保护被别的路径启动，这条拦截也会让它无法真正下达限制。</string>
+
+    <string name="section_general_protect">通用充电保护</string>
+    <string name="protect_all_title">拦截全部充电保护</string>
+    <string name="protect_all_brief">7 个保护策略一律不启动</string>
+    <string name="protect_all_detail">7 个充电保护的共同启动闸门：夜间、导航、高温、长时间、手柄、始终保护。该闸门在全库只有一份实现、没有任何子类重写，拦一处即可全部失效。</string>
+    <string name="protect_common_title">拦截通用保护写入</string>
+    <string name="protect_common_brief">不下发 smart_chg 保护位</string>
+    <string name="protect_common_detail">通用保护（高温 / 导航 / 长时）通过 smart_chg 下发保护位：高 16 位是限制百分比（默认 80%%），低 16 位是保护类型。拦掉后不再向底层下发任何保护指令。</string>
+    <string name="limit_title">限制百分比</string>
+    <string name="limit_no_limit">不限制</string>
+    <string name="limit_detail">改写通用保护下发的限制阈值。设为 100 表示不下发限制；设为 50–99 则把保护阈值改写成该百分比。</string>
+    <string name="override_limit_title">改写限制百分比</string>
+    <string name="override_limit_brief">关闭后恢复官方原生阈值逻辑</string>
+    <string name="override_limit_detail">关闭后通用保护的限制百分比不再改写，官方原生阈值（默认 80%%）原样执行；开启后才按上方滑块值改写，设为 100 则跳过保护调用。</string>
+
+    <string name="pogo_title">pogo 底座充电保护</string>
+    <string name="pogo_brief">底座充电超过 79%% 时触发的保护</string>
+    <string name="pogo_detail">使用 pogo 底座 / 触点充电时，电量超过 79%% 会触发的充电保护，用于避免长时间满电放置。</string>
+    <string name="wireless_title">关闭无线静音充电</string>
+    <string name="wireless_brief">恢复无线充电满功率</string>
+    <string name="wireless_detail">无线静音充电会压低无线充电功率（对应 smart_chg 的 0x80 位），开启本项后不再压低，按满功率充电。</string>
+
+    <string name="fast_charge_title">快充开关</string>
+    <string name="fast_charge_detail">强制改写快充开关与能力判定。选「强制开启」会同时放行机型白名单与属性判定，用于设备本身支持快充、但因白名单或属性缺失而不生效的情况。</string>
+
+    <string name="bypass_title">旁路充电</string>
+    <string name="bypass_detail">旁路充电时会暂停给电池充电、直接给主板供电。「阻止自动开启」避免边玩边充时停止充电；「阻止自动停止」避免该模式被中途关掉。</string>
+
+    <string name="health_fake_title">伪装健康度等级</string>
+    <string name="health_fake_brief">改写健康等级返回值</string>
+    <string name="health_fake_detail">拦截电池健康等级的返回值（1–4 级，4 为最优）。只影响显示与等级判定，不改写底层 SOH 原始数据。</string>
+    <string name="health_level_title">健康等级</string>
+    <string name="health_level_value">等级 %1$d</string>
+    <string name="health_custom_title">自定义健康度显示</string>
+    <string name="health_custom_brief">只改充电保护页那一处百分比。留空不修改，点确定保存并重启安全服务。</string>
+    <string name="health_custom_placeholder">如：88%%</string>
+    <string name="btn_confirm">确定</string>
+
+    <string name="page_charge">充电保护</string>
+    <string name="page_system">系统与性能</string>
+    <string name="page_settings">设置</string>
+
+    <string name="perf_power_mode_title">拦截电源模式切换</string>
+    <string name="perf_power_mode_brief">性能 / 省电 / 超省电都切不了</string>
+    <string name="perf_power_mode_detail">性能模式、省电模式、超省电模式的切换总闸。拦掉后三种模式都无法切换；读取当前状态的调用仍然放行，不影响界面显示。</string>
+    <string name="perf_super_save_title">拦截超省电模式</string>
+    <string name="perf_super_save_brief">解除超省电的一连串限制</string>
+    <string name="perf_super_save_detail">超省电模式一进入会连锁触发：禁用应用、锁屏杀进程、冻结自启动与唤醒路径、动画归零、限制通知与状态栏、触控降级。掐掉入口即可一次性全部解除。</string>
+    <string name="perf_fps_title">禁止降频 / 降亮度</string>
+    <string name="perf_fps_brief">刷新率不再被锁 60Hz</string>
+    <string name="perf_fps_detail">进入省电模式后系统会：把屏幕刷新率锁到 60Hz（省电后手感变卡的主因）、降低屏幕亮度、缩短息屏超时。开启后这三项都不再被改动。</string>
+    <string name="perf_thermal_title">禁止温控降频</string>
+    <string name="perf_thermal_brief">高温不强制降档</string>
+    <string name="perf_thermal_detail">温度升高时系统会下发温控档位，写系统属性 persist.sys.thermal.config 以及内核节点 /sys/class/thermal/thermal_message/sconfig，以此限制 CPU / GPU 频率。开启后不再下发。</string>
+
+    <string name="sys_appops_title">解除 AppOps 限制</string>
+    <string name="sys_appops_brief">7 种 MIUI 私有限制一并放行</string>
+    <string name="sys_appops_detail">MIUI 的 7 种私有限制：10048 禁止安装应用、10049 禁止链式启动、10050 限制设备标识读取、10041 录屏保护、119 无障碍服务受限、10054 / 10055 限制 AI 读屏与控屏。</string>
+    <string name="sys_kill_bg_title">禁止清理杀后台</string>
+    <string name="sys_kill_bg_brief">一键清理不再杀进程</string>
+    <string name="sys_kill_bg_detail">一键清理会调用 killBackgroundProcesses 杀掉后台进程、批量杀进程 id，并把应用从最近任务列表移除。开启后这些动作都不再执行。</string>
+    <string name="sys_autostart_title">强制允许自启动</string>
+    <string name="sys_autostart_brief">允许开机自启与自动拉起</string>
+    <string name="sys_autostart_detail">自启动限制写在平台权限库的 PERM_ID_AUTOSTART 上（禁止 = 1，允许 = 3），不走 Settings 也不走 AppOps，所以常规方案对它无效。系统禁止自启动时还会顺带杀掉该应用的进程。</string>
+
+    <string name="section_network">网络限制</string>
+    <string name="net_restrict_title">解除联网限制</string>
+    <string name="net_restrict_brief">WiFi / 移动数据联网全部放行</string>
+    <string name="net_restrict_detail">按应用逐个控制联网权限：WiFi 与移动数据分开，移动数据还分 SIM 卡槽。规则来源除了手动设置，还有系统预置的联网配置。开启后一律放行，不再限制任何应用联网。</string>
+    <string name="net_bg_title">解除后台联网限制</string>
+    <string name="net_bg_brief">后台也能正常联网</string>
+    <string name="net_bg_detail">系统为省电会限制应用在后台使用网络，按应用 uid 逐条设置，另有一个全局开关。开启后应用在后台可正常联网。</string>
+    <string name="net_traffic_title">解除流量超限停网</string>
+    <string name="net_traffic_brief">套餐用尽不再自动断网</string>
+    <string name="net_traffic_detail">套餐流量用尽时系统会直接关闭移动数据开关，表现为突然断网。开启后不再自动断网，流量用尽需自行留意。</string>
+    <string name="net_tether_title">解除热点流量限制</string>
+    <string name="net_tether_brief">热点超限不再中断</string>
+    <string name="net_tether_detail">热点共享流量达到上限时系统会关闭热点并弹出提示。开启后不再中断热点共享。</string>
+
+    <string name="section_install">安装</string>
+    <string name="install_verify_title">解除安装签名校验</string>
+    <string name="install_verify_brief">第三方安装器不再被拦</string>
+    <string name="install_verify_detail">安装时会比对 APK 的签名摘要与白名单（小米官方签名，或系统已记录的签名），不一致就中止安装。第三方安装器、部分自签名应用常被这条拦住。</string>
+
+    <string name="persist_desc">用 root 把「禁用保护」写进系统属性与 Settings。落地后即使停用或卸载本模块，限制也不会回来。应用前会自动备份原值。</string>
+
+    <string name="debug_title">输出调试日志</string>
+    <string name="debug_brief">记录每次拦截到 logcat</string>
+    <string name="debug_detail">开启后每次拦截都会写入日志，用 logcat -s MeowPower 查看。排查某个功能是否生效时打开，平时建议关闭。</string>
+
+    <string name="section_about">关于</string>
+    <string name="about_author">作者</string>
+    <string name="about_repo">仓库</string>
+    <string name="about_version">版本</string>
+
+    <string name="footer_text">配置修改即时生效，无需重启目标应用。\n首次启用模块或更新模块代码后，需要重启安全服务进程。\n持久化落地不依赖模块运行，可在停用模块后继续生效。\n\n本模块仅修改本机行为，不涉及数据上传。</string>
+
+    <string name="monitor_auto_refresh">更新于 %1$s · 每 2 秒自动刷新</string>
+    <string name="monitor_loading">正在读取…</string>
+
+    <!-- Pay wall -->
+    <string name="pay_title">付款支持</string>
+    <string name="pay_price">¥8</string>
+    <string name="pay_price_desc">本模块售价 8 元</string>
+    <string name="pay_desc">扫码支付 8 元即可进入使用，不设功能限制。</string>
+    <string name="pay_trial_note">暂不付款时，连续两次确认未付款后可免费试用（未授权模式，每日过期）。</string>
+    <string name="pay_qr_title">收款码</string>
+    <string name="pay_qr_1">收款码一</string>
+    <string name="pay_qr_2">收款码二</string>
+    <string name="pay_enter">已支付 8 元，进入</string>
+    <string name="pay_trial_enter">免费试用，进入</string>
+    <string name="pay_confirm_title">付款确认</string>
+    <string name="pay_confirm_again">再次确认</string>
+    <string name="pay_confirm_question">是否已完成付款？</string>
+    <string name="pay_unpaid">未付款</string>
+    <string name="pay_paid">我已付款</string>
+
+    <!-- Language -->
+    <string name="section_language">语言</string>
+    <string name="language_title">界面语言</string>
+    <string name="language_follow_system">跟随系统</string>
+    <string name="language_zh">中文</string>
+    <string name="language_en">English</string>
 </resources>

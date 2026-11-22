@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MeowPower</string>
+    <string name="module_description">Remove various restrictions from Xiaomi Security Center. Covers charging protection (night / general / pogo / fast charge / bypass), performance &amp; power (battery saver / ultra saver / throttle / thermal), system &amp; background (AppOps / background kill / autostart), plus root live monitoring and persistent system-level overrides.</string>
+
+    <string name="status_disconnected">Not connected to LSPosed</string>
+    <string name="status_disconnected_detail">Please verify: 1) This module is enabled in LSPosed; 2) Scope includes "Security Service"; 3) The Security Service process has been restarted.</string>
+    <string name="status_prefs_failed">Config storage unavailable</string>
+    <string name="status_prefs_failed_detail">Connected to framework but cannot access RemotePreferences. Check if your LSPosed version supports the modern API.</string>
+    <string name="status_connected">Connected to %1$s</string>
+    <string name="status_detail">Framework %1$s · API %2$d\nScope %3$s</string>
+
+    <string name="section_monitor">Live Monitor (root)</string>
+    <string name="monitor_refresh">Refresh</string>
+    <string name="monitor_reading">Reading…</string>
+    <string name="monitor_no_root">Root unavailable, cannot read sysfs or system properties</string>
+    <string name="monitor_idle">Tap "Refresh" to start reading</string>
+    <string name="monitor_root_ok">Root granted</string>
+    <string name="monitor_root_fail">Root not granted</string>
+    <string name="monitor_auto_off">Auto-refresh: Off</string>
+    <string name="monitor_auto_on">Auto-refresh: On</string>
+    <string name="section_other">Other Protections</string>
+    <string name="monitor_updated">Updated at %1$s</string>
+
+    <string name="section_persist">Persistent Override (stays after module is disabled)</string>
+    <string name="persist_hint">Uses root to write "disable charging protection" directly into system properties and Settings. Once applied, protection checks fail at the source — restrictions won\'t return even if this module is disabled or uninstalled. Original values are backed up automatically.</string>
+    <string name="persist_apply">Apply</string>
+    <string name="persist_restore">Restore</string>
+    <string name="persist_state_applied">Status: Applied</string>
+    <string name="persist_state_clean">Status: Not applied</string>
+    <string name="persist_working">Working…</string>
+
+    <string name="section_master">Master Switch</string>
+    <string name="master_enabled">Enable module</string>
+    <string name="master_hint">When disabled, all Hook interventions stop immediately. The target app does not need to restart. Persistent system-level changes are not affected.</string>
+
+    <string name="section_night">Night Charging Protection</string>
+    <string name="night_entry">Block protection entry</string>
+    <string name="night_entry_hint">Blocks NightChargeProtectManager.C() and M() so night charging protection never starts. Recommended.</string>
+    <string name="night_state">Block state write (fallback)</string>
+    <string name="night_state_hint">Blocks setNightChargingState(1) to prevent other paths from re-enabling night charge protection.</string>
+
+    <string name="section_protect">General Charging Protection (heat / nav / prolonged / controller / always)</string>
+    <string name="protect_all">Block all charging protection</string>
+    <string name="protect_all_hint">Blocks hg.a.l(true) master gate — all 7 protection policies are disabled. Only one implementation exists in the entire codebase.</string>
+    <string name="protect_common">Block general protection write</string>
+    <string name="protect_common_hint">Completely blocks e.n() / e.p() from issuing smart_chg protection bits.</string>
+    <string name="protect_limit">Limit percentage</string>
+    <string name="protect_limit_unlimited">Unlimited</string>
+    <string name="protect_limit_value">%1$d%%</string>
+    <string name="protect_limit_hint">When set to 100, no limit is issued. Other values rewrite the protection threshold to that percentage.</string>
+
+    <string name="pogo_protect">Pogo dock charging protection</string>
+    <string name="pogo_hint">Protection triggered when charging via dock/pogo pins and battery is above 79%%, blocks gh.e enable action.</string>
+    <string name="wireless_silence">Disable wireless silent charging</string>
+    <string name="wireless_hint">Force-clears the smart_chg 0x80 silent bit, restoring full wireless charging power.</string>
+
+    <string name="section_perf">Performance &amp; Power</string>
+    <string name="perf_power_mode">Block power mode switching</string>
+    <string name="perf_power_mode_hint">Blocks PowerSaverProvider.call for performance / battery saver / ultra saver switching. Query calls still pass through.</string>
+    <string name="perf_super_save">Block ultra battery saver</string>
+    <string name="perf_super_save_hint">Ultra saver triggers a chain: disabling apps, killing background, freezing autostart, zeroing animations, restricting notifications &amp; status bar. Blocking the entry disables all of these at once.</string>
+    <string name="perf_fps">Disable refresh rate / brightness throttle</string>
+    <string name="perf_fps_hint">Prevents battery saver from locking refresh rate to 60Hz, lowering brightness, and shortening screen timeout.</string>
+    <string name="perf_thermal">Disable thermal throttling</string>
+    <string name="perf_thermal_hint">Prevents thermal config from being applied, avoiding forced CPU/GPU frequency reduction at high temperatures.</string>
+
+    <string name="section_system">System &amp; Background</string>
+    <string name="sys_appops">Remove AppOps restrictions</string>
+    <string name="sys_appops_hint">Allows ops 10048 (install), 10049 (chain start), 10050 (device ID), 10041 (screen record), 119 (accessibility), 10054/10055 (AI screen read/control).</string>
+    <string name="sys_kill_bg">Disable background killing</string>
+    <string name="sys_kill_bg_hint">Prevents one-tap clean from killing background processes and removing recent tasks.</string>
+    <string name="sys_autostart">Force allow autostart</string>
+    <string name="sys_autostart_hint">Autostart restriction uses the platform permission library, not Settings or AppOps, so standard methods don\'t work.</string>
+
+    <string name="section_fast">Fast Charging</string>
+    <string name="fast_off">No change</string>
+    <string name="fast_on">Force enable</string>
+    <string name="fast_disable">Force disable</string>
+    <string name="fast_hint">Force enable also bypasses capability checks, for devices where fast charging doesn\'t activate due to missing whitelist or property.</string>
+
+    <string name="section_bypass">Bypass Charging (direct power while plugged in)</string>
+    <string name="bypass_off">No change</string>
+    <string name="bypass_block_on">Block auto-enable</string>
+    <string name="bypass_block_off">Block auto-disable</string>
+    <string name="bypass_hint">Bypass charging pauses battery charging and powers the motherboard directly.</string>
+
+    <string name="section_health">Battery Health</string>
+    <string name="health_fake">Fake health level</string>
+    <string name="health_level">Level %1$d</string>
+    <string name="health_hint">Intercepts jh.c.p() return value. 4 is best. Only affects display and level checks, not raw SOH data.</string>
+
+    <string name="section_debug">Debug</string>
+    <string name="debug_log">Output debug log</string>
+    <string name="debug_hint">Log TAG: MeowPower. Use logcat -s MeowPower to view.</string>
+
+    <string name="footer">Config changes take effect immediately — no need to restart the target app.\nAfter first enabling the module or updating its code, restart the Security Service process.\nPersistent overrides don\'t depend on the module running and remain effective after disabling it.\n\nThis module only modifies local device behavior and does not upload any data.</string>
+
+    <!-- UI strings -->
+    <string name="tab_home">Home</string>
+    <string name="tab_charge">Charge</string>
+    <string name="tab_system">System</string>
+    <string name="tab_settings">Settings</string>
+
+    <string name="app_name_unlicensed">MeowPower (Unlicensed)</string>
+    <string name="restart_scope">Restart Scope</string>
+    <string name="restart_scope_ok">Security Service restarted</string>
+    <string name="restart_scope_fail">Restart failed: root unavailable</string>
+
+    <string name="status_not_connected">Not Connected</string>
+    <string name="status_config_unavailable">Config Unavailable</string>
+    <string name="status_working">Working</string>
+    <string name="status_version">Version: %1$s (%2$s)</string>
+    <string name="status_version_none">Version: —</string>
+
+    <string name="info_framework">Framework</string>
+    <string name="info_version">Version</string>
+    <string name="info_api">API</string>
+    <string name="info_scope">Scope</string>
+    <string name="info_root">Root</string>
+    <string name="info_root_checking">Checking…</string>
+    <string name="info_root_granted">Granted</string>
+    <string name="info_root_denied">Not granted</string>
+    <string name="info_hint">Hint</string>
+    <string name="info_hint_detail">Please enable this module in LSPosed, include "Security Service" in the scope, then restart that process.</string>
+    <string name="info_na">—</string>
+
+    <string name="master_title">Enable module</string>
+    <string name="master_brief">When off, all Hook interventions stop immediately</string>
+    <string name="master_detail">When off, this module no longer intercepts anything and the target app returns to stock behavior. Persistent overrides written to system properties and Settings are not affected and must be restored separately.</string>
+
+    <string name="night_entry_title">Block protection entry</string>
+    <string name="night_entry_brief">Night charge protection won\'t start, no more stuck at 80%%</string>
+    <string name="night_entry_detail">The main entry for night charging protection. Once active it makes the firmware hold charge at 80%%. Blocking it prevents the entire chain from starting, including the resume-charging alarm.</string>
+    <string name="night_state_title">Block state write (fallback)</string>
+    <string name="night_state_brief">Prevent other paths from re-enabling protection</string>
+    <string name="night_state_detail">Night charge protection ultimately relies on setNightChargingState(1). Even if protection is started via another path, this block prevents it from actually issuing the restriction.</string>
+
+    <string name="section_general_protect">General Charging Protection</string>
+    <string name="protect_all_title">Block all charging protection</string>
+    <string name="protect_all_brief">All 7 protection policies disabled</string>
+    <string name="protect_all_detail">The shared gate for 7 charging protections: night, navigation, high-temp, prolonged, controller, always-on. Only one implementation exists — blocking it disables all of them.</string>
+    <string name="protect_common_title">Block general protection write</string>
+    <string name="protect_common_brief">Don\'t issue smart_chg protection bits</string>
+    <string name="protect_common_detail">General protection (high-temp / navigation / prolonged) issues smart_chg bits: upper 16 bits are the limit percentage (default 80%%), lower 16 bits are the protection type. Blocking it stops all protection commands.</string>
+    <string name="limit_title">Limit Percentage</string>
+    <string name="limit_no_limit">Unlimited</string>
+    <string name="limit_detail">Rewrites the protection limit threshold. 100 means no limit is issued; 50–99 rewrites the threshold to that percentage.</string>
+    <string name="override_limit_title">Override limit percentage</string>
+    <string name="override_limit_brief">When off, restores stock threshold logic</string>
+    <string name="override_limit_detail">When off, the general protection limit percentage is not rewritten and the stock threshold (default 80%%) is used. When on, it is rewritten to the slider value; 100 skips the protection call entirely.</string>
+
+    <string name="pogo_title">Pogo dock charging protection</string>
+    <string name="pogo_brief">Protection triggered above 79%% while dock charging</string>
+    <string name="pogo_detail">Triggered when charging via pogo dock / contact pins and battery exceeds 79%%. Designed to prevent prolonged full-charge while docked.</string>
+    <string name="wireless_title">Disable wireless silent charging</string>
+    <string name="wireless_brief">Restore full wireless charging power</string>
+    <string name="wireless_detail">Wireless silent charging reduces wireless charging power (smart_chg 0x80 bit). Enabling this removes the limit and charges at full power.</string>
+
+    <string name="fast_charge_title">Fast Charge Switch</string>
+    <string name="fast_charge_detail">Force-overrides the fast charge switch and capability check. "Force enable" also bypasses whitelist and property checks, for devices that support fast charging but can\'t activate it.</string>
+
+    <string name="bypass_title">Bypass Charging</string>
+    <string name="bypass_detail">Bypass charging pauses battery charging and powers the motherboard directly. "Block auto-enable" prevents charging from stopping during use; "Block auto-disable" prevents the mode from being turned off mid-session.</string>
+
+    <string name="health_fake_title">Fake health level</string>
+    <string name="health_fake_brief">Override health level return value</string>
+    <string name="health_fake_detail">Intercepts the battery health level return value (1–4, 4 is best). Only affects display and level checks, does not change raw SOH data.</string>
+    <string name="health_level_title">Health Level</string>
+    <string name="health_level_value">Level %1$d</string>
+    <string name="health_custom_title">Custom health display</string>
+    <string name="health_custom_brief">Only changes the percentage shown on the charging protection page. Leave empty to skip. Tap OK to save and restart Security Service.</string>
+    <string name="health_custom_placeholder">e.g. 88%%</string>
+    <string name="btn_confirm">OK</string>
+
+    <string name="page_charge">Charging Protection</string>
+    <string name="page_system">System &amp; Performance</string>
+    <string name="page_settings">Settings</string>
+
+    <string name="perf_power_mode_title">Block power mode switching</string>
+    <string name="perf_power_mode_brief">Performance / saver / ultra saver can\'t switch</string>
+    <string name="perf_power_mode_detail">The master gate for performance, battery saver, and ultra battery saver mode switching. When blocked, none of the three modes can be activated; status queries still pass through for display purposes.</string>
+    <string name="perf_super_save_title">Block ultra battery saver</string>
+    <string name="perf_super_save_brief">Remove the cascade of ultra saver restrictions</string>
+    <string name="perf_super_save_detail">Ultra battery saver triggers a chain: disabling apps, killing on lock screen, freezing autostart &amp; wake paths, zeroing animations, restricting notifications &amp; status bar, touch degradation. Blocking the entry disables everything at once.</string>
+    <string name="perf_fps_title">Disable refresh rate / brightness throttle</string>
+    <string name="perf_fps_brief">Refresh rate no longer locked to 60Hz</string>
+    <string name="perf_fps_detail">In battery saver mode the system: locks refresh rate to 60Hz (the main cause of perceived lag in saver mode), lowers brightness, and shortens screen timeout. Enabling this prevents all three.</string>
+    <string name="perf_thermal_title">Disable thermal throttling</string>
+    <string name="perf_thermal_brief">No forced downclocking at high temps</string>
+    <string name="perf_thermal_detail">When temperature rises the system writes thermal profiles to persist.sys.thermal.config and kernel node /sys/class/thermal/thermal_message/sconfig to limit CPU/GPU frequency. Enabling this prevents the write.</string>
+
+    <string name="sys_appops_title">Remove AppOps restrictions</string>
+    <string name="sys_appops_brief">All 7 MIUI private restrictions allowed</string>
+    <string name="sys_appops_detail">MIUI\'s 7 private restrictions: 10048 block app install, 10049 block chain start, 10050 restrict device ID reading, 10041 screen recording protection, 119 accessibility restriction, 10054/10055 restrict AI screen reading &amp; control.</string>
+    <string name="sys_kill_bg_title">Disable background killing</string>
+    <string name="sys_kill_bg_brief">One-tap clean no longer kills processes</string>
+    <string name="sys_kill_bg_detail">One-tap clean calls killBackgroundProcesses to kill background processes, batch-kills process IDs, and removes apps from the recent tasks list. Enabling this stops all of these.</string>
+    <string name="sys_autostart_title">Force allow autostart</string>
+    <string name="sys_autostart_brief">Allow boot autostart and auto-launch</string>
+    <string name="sys_autostart_detail">Autostart restriction is set via PERM_ID_AUTOSTART in the platform permission library (deny = 1, allow = 3), not via Settings or AppOps, so standard methods don\'t work. The system also kills the app\'s process when autostart is denied.</string>
+
+    <string name="section_network">Network Restrictions</string>
+    <string name="net_restrict_title">Remove network restrictions</string>
+    <string name="net_restrict_brief">Allow all WiFi / mobile data access</string>
+    <string name="net_restrict_detail">Per-app network access control: WiFi and mobile data are separate, mobile data further split by SIM slot. Rules come from manual settings and system presets. Enabling this allows all apps to access the network.</string>
+    <string name="net_bg_title">Remove background network restrictions</string>
+    <string name="net_bg_brief">Background apps can access network normally</string>
+    <string name="net_bg_detail">The system restricts background network access per-app UID to save power, plus a global switch. Enabling this allows background network access.</string>
+    <string name="net_traffic_title">Remove data cap cutoff</string>
+    <string name="net_traffic_brief">Network won\'t auto-disconnect when data runs out</string>
+    <string name="net_traffic_detail">When mobile data allowance is used up, the system turns off the mobile data switch, causing a sudden disconnect. Enabling this prevents auto-disconnection — monitor your usage manually.</string>
+    <string name="net_tether_title">Remove hotspot data limit</string>
+    <string name="net_tether_brief">Hotspot won\'t stop when limit is reached</string>
+    <string name="net_tether_detail">When hotspot data reaches its limit, the system turns off the hotspot and shows a notification. Enabling this prevents the interruption.</string>
+
+    <string name="section_install">Installation</string>
+    <string name="install_verify_title">Remove install signature check</string>
+    <string name="install_verify_brief">Third-party installers no longer blocked</string>
+    <string name="install_verify_detail">During installation, the APK signature digest is compared against a whitelist (Xiaomi official signatures or previously recorded ones). Mismatch aborts the install. Third-party installers and self-signed apps are commonly blocked by this.</string>
+
+    <string name="persist_desc">Uses root to write "disable protection" into system properties and Settings. Even after disabling or uninstalling this module, restrictions won\'t return. Original values are backed up automatically.</string>
+
+    <string name="debug_title">Output debug log</string>
+    <string name="debug_brief">Log each interception to logcat</string>
+    <string name="debug_detail">When enabled, every interception is logged. Use logcat -s MeowPower to view. Turn on when troubleshooting, keep off otherwise.</string>
+
+    <string name="section_about">About</string>
+    <string name="about_author">Author</string>
+    <string name="about_repo">Repository</string>
+    <string name="about_version">Version</string>
+
+    <string name="footer_text">Config changes take effect immediately — no need to restart the target app.\nAfter first enabling the module or updating its code, restart the Security Service process.\nPersistent overrides don\'t depend on the module running and remain effective after disabling it.\n\nThis module only modifies local device behavior and does not upload any data.</string>
+
+    <string name="monitor_auto_refresh">Updated at %1$s · auto-refreshes every 2s</string>
+    <string name="monitor_loading">Loading…</string>
+
+    <!-- Pay wall -->
+    <string name="pay_title">Payment Support</string>
+    <string name="pay_price">¥8</string>
+    <string name="pay_price_desc">This module costs ¥8</string>
+    <string name="pay_desc">Pay ¥8 via QR code to unlock — no feature restrictions.</string>
+    <string name="pay_trial_note">If not paying now, confirm twice that you haven\'t paid to unlock a free trial (unlicensed mode, expires daily).</string>
+    <string name="pay_qr_title">Payment QR Code</string>
+    <string name="pay_qr_1">QR Code 1</string>
+    <string name="pay_qr_2">QR Code 2</string>
+    <string name="pay_enter">I\'ve paid ¥8, enter</string>
+    <string name="pay_trial_enter">Free trial, enter</string>
+    <string name="pay_confirm_title">Payment Confirmation</string>
+    <string name="pay_confirm_again">Confirm Again</string>
+    <string name="pay_confirm_question">Have you completed the payment?</string>
+    <string name="pay_unpaid">Not paid</string>
+    <string name="pay_paid">I\'ve paid</string>
+
+    <!-- Language -->
+    <string name="section_language">Language</string>
+    <string name="language_title">Interface Language</string>
+    <string name="language_follow_system">Follow System</string>
+    <string name="language_zh">中文</string>
+    <string name="language_en">English</string>
+</resources>
